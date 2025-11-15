@@ -1,0 +1,6 @@
+Bin/
+CMakeBuild/
+.vscode/
+.vs/
+.idea/
+.venv/
