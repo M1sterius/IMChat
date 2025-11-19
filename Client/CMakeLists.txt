@@ -7,6 +7,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/Bin/Client/${CMAKE_BUILD_
 
 add_executable(Client
     Source/main.cpp
+    Source/Client.cpp
 )
 
 target_include_directories(Client PRIVATE
