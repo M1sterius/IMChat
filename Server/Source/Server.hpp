@@ -8,6 +8,7 @@
 #include <thread>
 #include <memory>
 #include <vector>
+#include <list>
 
 namespace IMChat::Server
 {
@@ -26,10 +27,14 @@ namespace IMChat::Server
         asio::io_context m_Context;
         std::thread m_Worker;
         asio::ip::tcp::acceptor m_Acceptor;
-        std::shared_ptr<asio::ip::tcp::socket> m_Client;
-        std::vector<char> m_Buffer;
+        std::list<ClientConnection> m_Clients;
+        uint32_t m_IDs;
 
         void WaitForClientConnection();
-        void ReadData(const std::shared_ptr<asio::ip::tcp::socket>& socket, std::vector<char>& buffer);
+        void DisconnectClient(const ClientConnection& connection);
+
+        void ReadMessageHeader(ClientConnection& connection, std::shared_ptr<Message> message);
+        void ReadMessageBody(ClientConnection& connection, std::shared_ptr<Message> message);
+        void ProcessMessage(ClientConnection& connection, std::shared_ptr<Message> message);
     };
 }

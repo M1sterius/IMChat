@@ -4,9 +4,6 @@
 #include <iostream>
 #include <thread>
 
-#define ASIO_STANDALONE
-#include "asio.hpp"
-
 #include "Common.hpp"
 #include "Client.hpp"
 

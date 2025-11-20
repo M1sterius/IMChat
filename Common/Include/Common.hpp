@@ -9,13 +9,16 @@ typedef uint8_t byte_t;
 #define IMCHAT_SERVER_PORT 9997
 
 #define KB(n) (n * 1024)
+#define MB(n) (n * 1024 * 1024)
 
 namespace IMChat
 {
-    enum class MessageType
+    enum class MessageType : uint32_t
     {
-        Login,
-        Text
+        LoginRequest,
+        LoginResponse,
+
+        TestMessage,
     };
 
     struct MessageHeader

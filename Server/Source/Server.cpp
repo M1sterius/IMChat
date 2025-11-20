@@ -6,10 +6,12 @@
 namespace IMChat::Server
 {
     Server::Server(const uint16_t port)
-        : m_Acceptor(m_Context, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port)), m_Buffer(KB(20))
+        : m_Acceptor(m_Context, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port)), m_IDs(100)
     {
         WaitForClientConnection();
         m_Worker = std::thread([this] { m_Context.run(); });
+
+        std::println("[SERVER] Started.");
     }
 
     Server::~Server()
@@ -24,10 +26,14 @@ namespace IMChat::Server
         {
             if (!ec)
             {
-                std::println("[SERVER] Client connected {}:{}.", socket.remote_endpoint().address().to_string(), socket.remote_endpoint().port());
+                std::println("[SERVER] Client connected at {}:{}.", socket.remote_endpoint().address().to_string(), socket.remote_endpoint().port());
 
-                m_Client = std::make_shared<asio::ip::tcp::socket>(std::move(socket));
-                ReadData(m_Client, m_Buffer);
+                m_Clients.emplace_back(
+                    m_IDs++,
+                    std::make_shared<asio::ip::tcp::socket>(std::move(socket))
+                );
+
+                ReadMessageHeader(m_Clients.back(), std::make_shared<Message>());
             }
             else
             {
@@ -38,24 +44,47 @@ namespace IMChat::Server
         });
     }
 
-    void Server::ReadData(const std::shared_ptr<asio::ip::tcp::socket>& socket, std::vector<char>& buffer)
+    void Server::DisconnectClient(const ClientConnection& connection)
     {
-        // Schedule a single read operation!!!
-        socket->async_read_some(asio::buffer(buffer), [this, &socket, &buffer](const asio::error_code ec, const size_t size)
+        const auto& rp = connection.Socket->remote_endpoint();
+
+        std::println("[SERVER] Lost connection to client at {}:{}", rp.address().to_string(),
+            rp.port());
+
+        m_Clients.remove(connection);
+    }
+
+    void Server::ReadMessageHeader(ClientConnection& connection, std::shared_ptr<Message> message)
+    {
+        asio::async_read(connection.Socket, asio::buffer(&message->Header, sizeof(MessageHeader)),
+            [this, &connection, &message](const asio::error_code ec, const size_t size)
+        {
+            if (!ec)
+                ReadMessageBody(connection, message);
+            else
+                DisconnectClient(connection);
+        });
+    }
+
+    void Server::ReadMessageBody(ClientConnection& connection, std::shared_ptr<Message> message)
+    {
+        message->Body.resize(message->Header.Size);
+
+        asio::async_read(connection.Socket, asio::buffer(message->Body.data(), message->Header.Size),
+            [this, &connection, &message] (const asio::error_code ec, const size_t size)
         {
             if (!ec)
             {
-                std::print("Received message: ");
-                for (size_t i = 0; i < size; i++)
-                    std::cout << buffer[i];
-                std::cout << '\n';
-
-                // Schedule another read operation in case the message wasn't received in full
-                ReadData(socket, buffer);
+                ProcessMessage(connection, message);
+                ReadMessageHeader(connection, message);
             }
             else
-                std::println("Error reading data: {}", ec.message());
-
+                DisconnectClient(connection);
         });
+    }
+
+    void Server::ProcessMessage(ClientConnection& connection, std::shared_ptr<Message> message)
+    {
+
     }
 }
