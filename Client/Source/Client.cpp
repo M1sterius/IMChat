@@ -40,13 +40,35 @@ namespace IMChat::Client
         return m_Socket.is_open();
     }
 
-    void Client::SendData(const void* data, const size_t size)
+    void Client::SendMessage(const Message& message)
     {
-        m_Socket.async_write_some(asio::buffer(data, size), [](const asio::error_code ec, const size_t size) {});
+        // Send header
+        asio::async_write(m_Socket, asio::buffer(&message.Header, sizeof(MessageHeader)),
+            [](const asio::error_code ec, const std::size_t size)
+        {
+            if (ec)
+                std::println("Failed to send message header!");
+        });
+
+        // Send body
+        if (message.Header.Size > 0)
+        {
+            asio::async_write(m_Socket, asio::buffer(message.Body.data(), message.Header.Size),
+                [](const asio::error_code ec, const std::size_t size)
+            {
+                if (ec)
+                    std::println("Failed to send message body!");
+            });
+        }
     }
 
-    void Client::SendData(const std::string& str)
+    void Client::SendTextMessage(const std::string& text)
     {
-        SendData(str.data(), str.size());
+        auto message = Message();
+        message.Header.Type = MessageType::TestMessage;
+        message.Header.Size = text.size();
+        message.Body = std::vector(text.begin(), text.end());
+
+        SendMessage(message);
     }
 }

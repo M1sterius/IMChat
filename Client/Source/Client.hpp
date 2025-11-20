@@ -8,6 +8,9 @@
 #include <thread>
 #include <string>
 
+// Do this because of stupid Windows API
+#undef SendMessage
+
 namespace IMChat::Client
 {
     class Client
@@ -19,8 +22,8 @@ namespace IMChat::Client
         bool Connect(const char* ip, const uint16_t port);
         bool IsConnected() const;
 
-        void SendData(const void* data, const size_t size);
-        void SendData(const std::string& str);
+        void SendMessage(const Message& message);
+        void SendTextMessage(const std::string& text);
     private:
         asio::io_context m_Context;
         std::thread m_Worker;

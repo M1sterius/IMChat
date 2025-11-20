@@ -20,6 +20,6 @@ int32_t main(int32_t argc, char** argv)
     while (client.IsConnected())
     {
         std::getline(std::cin, line);
-        client.SendData(line);
+        client.SendTextMessage(line);
     }
 }

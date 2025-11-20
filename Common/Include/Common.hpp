@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <vector>
 
-typedef uint8_t byte_t;
+typedef char byte_t;
 
 #define IMCHAT_SERVER_IP "127.0.0.1"
 #define IMCHAT_SERVER_PORT 9997
@@ -15,6 +15,8 @@ namespace IMChat
 {
     enum class MessageType : uint32_t
     {
+        Invalid,
+
         LoginRequest,
         LoginResponse,
 
@@ -23,8 +25,8 @@ namespace IMChat
 
     struct MessageHeader
     {
-        MessageType Type;
-        uint32_t Size;
+        MessageType Type{MessageType::Invalid};
+        uint32_t Size{0};
     };
 
     struct Message

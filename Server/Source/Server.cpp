@@ -51,13 +51,14 @@ namespace IMChat::Server
         std::println("[SERVER] Lost connection to client at {}:{}", rp.address().to_string(),
             rp.port());
 
-        m_Clients.remove(connection);
+        const auto id = connection.ID;
+        m_Clients.remove_if([id](const ClientConnection& client) { return client.ID == id; });
     }
 
-    void Server::ReadMessageHeader(ClientConnection& connection, std::shared_ptr<Message> message)
+    void Server::ReadMessageHeader(const ClientConnection& connection, std::shared_ptr<Message> message)
     {
-        asio::async_read(connection.Socket, asio::buffer(&message->Header, sizeof(MessageHeader)),
-            [this, &connection, &message](const asio::error_code ec, const size_t size)
+        asio::async_read(*connection.Socket, asio::buffer(&message->Header, sizeof(MessageHeader)),
+            [this, &connection, message](const asio::error_code ec, const size_t size)
         {
             if (!ec)
                 ReadMessageBody(connection, message);
@@ -66,12 +67,12 @@ namespace IMChat::Server
         });
     }
 
-    void Server::ReadMessageBody(ClientConnection& connection, std::shared_ptr<Message> message)
+    void Server::ReadMessageBody(const ClientConnection& connection, std::shared_ptr<Message> message)
     {
         message->Body.resize(message->Header.Size);
 
-        asio::async_read(connection.Socket, asio::buffer(message->Body.data(), message->Header.Size),
-            [this, &connection, &message] (const asio::error_code ec, const size_t size)
+        asio::async_read(*connection.Socket, asio::buffer(message->Body.data(), message->Header.Size),
+            [this, &connection, message] (const asio::error_code ec, const size_t size)
         {
             if (!ec)
             {
@@ -83,8 +84,10 @@ namespace IMChat::Server
         });
     }
 
-    void Server::ProcessMessage(ClientConnection& connection, std::shared_ptr<Message> message)
+    void Server::ProcessMessage(const ClientConnection& connection, std::shared_ptr<Message> message)
     {
-
+        std::print("Received message (Client {}, {} bytes): ", connection.ID, message->Header.Size);
+        std::cout.write(reinterpret_cast<const char*>(message->Body.data()), message->Header.Size);
+        std::cout << '\n';
     }
 }

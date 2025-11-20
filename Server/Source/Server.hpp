@@ -33,8 +33,8 @@ namespace IMChat::Server
         void WaitForClientConnection();
         void DisconnectClient(const ClientConnection& connection);
 
-        void ReadMessageHeader(ClientConnection& connection, std::shared_ptr<Message> message);
-        void ReadMessageBody(ClientConnection& connection, std::shared_ptr<Message> message);
-        void ProcessMessage(ClientConnection& connection, std::shared_ptr<Message> message);
+        void ReadMessageHeader(const ClientConnection& connection, std::shared_ptr<Message> message);
+        void ReadMessageBody(const ClientConnection& connection, std::shared_ptr<Message> message);
+        void ProcessMessage(const ClientConnection& connection, std::shared_ptr<Message> message);
     };
 }
