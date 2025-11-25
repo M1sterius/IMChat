@@ -11,27 +11,5 @@ typedef char byte_t;
 #define KB(n) (n * 1024)
 #define MB(n) (n * 1024 * 1024)
 
-namespace IMChat
-{
-    enum class MessageType : uint32_t
-    {
-        Invalid,
-
-        LoginRequest,
-        LoginResponse,
-
-        TestMessage,
-    };
-
-    struct MessageHeader
-    {
-        MessageType Type{MessageType::Invalid};
-        uint32_t Size{0};
-    };
-
-    struct Message
-    {
-        MessageHeader Header;
-        std::vector<byte_t> Body;
-    };
-}
+#include "Message.hpp"
+#include "Connection.hpp"
