@@ -7,19 +7,12 @@
 
 #include <thread>
 #include <memory>
-#include <vector>
 #include <list>
 
 namespace IMChat::Server
 {
     class Server
     {
-    private:
-        struct ClientConnection
-        {
-            uint32_t ID;
-            std::shared_ptr<asio::ip::tcp::socket> Socket;
-        };
     public:
         explicit Server(const uint16_t port);
         ~Server();
@@ -27,14 +20,12 @@ namespace IMChat::Server
         asio::io_context m_Context;
         std::thread m_Worker;
         asio::ip::tcp::acceptor m_Acceptor;
-        std::list<ClientConnection> m_Clients;
+        std::list<Connection> m_Clients;
         uint32_t m_IDs;
 
         void WaitForClientConnection();
-        void DisconnectClient(const ClientConnection& connection);
 
-        void ReadMessageHeader(const ClientConnection& connection, std::shared_ptr<Message> message);
-        void ReadMessageBody(const ClientConnection& connection, std::shared_ptr<Message> message);
-        void ProcessMessage(const ClientConnection& connection, std::shared_ptr<Message> message);
+        void OnReceiveMessage(const Connection& connection, std::shared_ptr<Message> message);
+        void OnClientDisconnect(const Connection& connection);
     };
 }

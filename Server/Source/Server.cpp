@@ -27,13 +27,17 @@ namespace IMChat::Server
             if (!ec)
             {
                 std::println("[SERVER] Client connected at {}:{}.", socket.remote_endpoint().address().to_string(), socket.remote_endpoint().port());
+                m_Clients.emplace_back(std::move(socket), m_IDs++);
 
-                m_Clients.emplace_back(
-                    m_IDs++,
-                    std::make_shared<asio::ip::tcp::socket>(std::move(socket))
-                );
+                m_Clients.back().SetReadMessageCallback([this](const Connection& client, std::shared_ptr<Message> msg)
+                {
+                    this->OnReceiveMessage(client, msg);
+                });
 
-                ReadMessageHeader(m_Clients.back(), std::make_shared<Message>());
+                m_Clients.back().SetDisconnectCallback([this](const Connection& client)
+                {
+                    this->OnClientDisconnect(client);
+                });
             }
             else
             {
@@ -44,50 +48,28 @@ namespace IMChat::Server
         });
     }
 
-    void Server::DisconnectClient(const ClientConnection& connection)
+    void Server::OnReceiveMessage(const Connection& connection, std::shared_ptr<Message> message)
     {
-        const auto& rp = connection.Socket->remote_endpoint();
-
-        std::println("[SERVER] Lost connection to client at {}:{}", rp.address().to_string(),
-            rp.port());
-
-        const auto id = connection.ID;
-        m_Clients.remove_if([id](const ClientConnection& client) { return client.ID == id; });
-    }
-
-    void Server::ReadMessageHeader(const ClientConnection& connection, std::shared_ptr<Message> message)
-    {
-        asio::async_read(*connection.Socket, asio::buffer(&message->Header, sizeof(MessageHeader)),
-            [this, &connection, message](const asio::error_code ec, const size_t size)
-        {
-            if (!ec)
-                ReadMessageBody(connection, message);
-            else
-                DisconnectClient(connection);
-        });
-    }
-
-    void Server::ReadMessageBody(const ClientConnection& connection, std::shared_ptr<Message> message)
-    {
-        message->Body.resize(message->Header.Size);
-
-        asio::async_read(*connection.Socket, asio::buffer(message->Body.data(), message->Header.Size),
-            [this, &connection, message] (const asio::error_code ec, const size_t size)
-        {
-            if (!ec)
-            {
-                ProcessMessage(connection, message);
-                ReadMessageHeader(connection, message);
-            }
-            else
-                DisconnectClient(connection);
-        });
-    }
-
-    void Server::ProcessMessage(const ClientConnection& connection, std::shared_ptr<Message> message)
-    {
-        std::print("Received message (Client {}, {} bytes): ", connection.ID, message->Header.Size);
+        std::print("Received message (Client {}, {} bytes): ", connection.GetID(), message->Header.Size);
         std::cout.write(reinterpret_cast<const char*>(message->Body.data()), message->Header.Size);
         std::cout << '\n';
     }
+
+    void Server::OnClientDisconnect(const Connection& connection)
+    {
+        const auto ID = connection.GetID();
+        std::println("Client {} disconnected!", ID);
+        m_Clients.remove_if([ID](const Connection& client) { return client.GetID() == ID; });
+    }
+
+    // void Server::DisconnectClient(const ClientConnection& connection)
+    // {
+    //     const auto& rp = connection.Socket->remote_endpoint();
+    //
+    //     std::println("[SERVER] Lost connection to client at {}:{}", rp.address().to_string(),
+    //         rp.port());
+    //
+    //     const auto id = connection.ID;
+    //     m_Clients.remove_if([id](const ClientConnection& client) { return client.ID == id; });
+    // }
 }

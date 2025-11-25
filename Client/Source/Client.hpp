@@ -16,17 +16,17 @@ namespace IMChat::Client
     class Client
     {
     public:
-        Client();
+        Client(const char* ip, const uint16_t port);
         ~Client();
 
-        bool Connect(const char* ip, const uint16_t port);
         bool IsConnected() const;
 
-        void SendMessage(const Message& message);
         void SendTextMessage(const std::string& text);
     private:
         asio::io_context m_Context;
         std::thread m_Worker;
-        asio::ip::tcp::socket m_Socket;
+        Connection m_Connection;
+
+        void OnReceiveMessage(const Connection& connection, std::shared_ptr<Message> message);
     };
 }
