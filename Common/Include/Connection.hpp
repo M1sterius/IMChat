@@ -2,6 +2,9 @@
 
 #include "Message.hpp"
 
+#ifdef _WIN32
+#define _WIN32_WINNT 0x0A00
+#endif
 #define ASIO_STANDALONE
 #include "asio.hpp"
 
@@ -13,22 +16,23 @@
 
 namespace IMChat
 {
-    class Connection
+    class Connection : public std::enable_shared_from_this<Connection>
     {
     public:
         explicit Connection(asio::ip::tcp::socket socket, const uint32_t ID = 0);
         ~Connection();
 
         bool IsOpen() const;
+
         uint32_t GetID() const { return m_ID; }
-        const std::shared_ptr<asio::ip::tcp::socket>& GetSocket() const { return m_Socket; }
+        asio::ip::tcp::socket& GetSocket() { return m_Socket; }
 
         void SendMessage(const Message& message);
 
         void SetReadMessageCallback(const std::function<void(const Connection&, std::shared_ptr<Message>)>& callback);
         void SetDisconnectCallback(const std::function<void(const Connection&)>& callback);
     private:
-        std::shared_ptr<asio::ip::tcp::socket> m_Socket;
+        asio::ip::tcp::socket m_Socket;
         uint32_t m_ID;
 
         std::function<void(const Connection&, std::shared_ptr<Message>)> m_ReadCallback;

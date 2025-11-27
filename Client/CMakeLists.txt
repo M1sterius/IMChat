@@ -12,6 +12,7 @@ add_executable(Client
 
 target_include_directories(Client PRIVATE
     ${CMAKE_SOURCE_DIR}/Common/Include
+    ${CMAKE_SOURCE_DIR}/Dependencies
     ${CMAKE_SOURCE_DIR}/Dependencies/boost_asio
 )
 

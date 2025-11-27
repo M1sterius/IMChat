@@ -19,13 +19,15 @@ namespace IMChat::Client
         Client(const char* ip, const uint16_t port);
         ~Client();
 
-        bool IsConnected() const;
-
-        void SendTextMessage(const std::string& text);
+        void Run();
     private:
         asio::io_context m_Context;
         std::thread m_Worker;
-        Connection m_Connection;
+        std::unique_ptr<Connection> m_Connection;
+
+        bool m_IsLoggedIn;
+
+        void SendMessage(const Message& message);
 
         void OnReceiveMessage(const Connection& connection, std::shared_ptr<Message> message);
     };

@@ -7,6 +7,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/Bin/Common/${CMAKE_BUILD_
 
 add_library(Common STATIC
     Source/Connection.cpp
+        Source/Utility.cpp
 )
 
 target_include_directories(Common PRIVATE

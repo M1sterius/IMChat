@@ -5,7 +5,7 @@
 namespace IMChat
 {
     Connection::Connection(asio::ip::tcp::socket socket, const uint32_t ID)
-        : m_Socket(std::make_shared<asio::ip::tcp::socket>(std::move(socket))), m_ID(ID)
+        : m_Socket(std::move(socket)), m_ID(ID)
     {
         ReadMessageHeader(std::make_shared<Message>());
     }
@@ -14,7 +14,7 @@ namespace IMChat
 
     bool Connection::IsOpen() const
     {
-        return m_Socket->is_open();
+        return m_Socket.is_open();
     }
 
     void Connection::SetReadMessageCallback(const std::function<void(const Connection&, std::shared_ptr<Message>)>& callback)
@@ -29,41 +29,60 @@ namespace IMChat
 
     void Connection::SendMessage(const Message& message)
     {
+        if (message.Header.Size < 1)
+        {
+            std::println("[CONNECTION] Sending empty messages is not allowed!");
+            return;
+        }
+
         // Send header
-        asio::async_write(*m_Socket, asio::buffer(&message.Header, sizeof(MessageHeader)),
+        asio::async_write(m_Socket, asio::buffer(&message.Header, sizeof(MessageHeader)),
             [](const asio::error_code ec, const std::size_t size)
         {
             if (ec)
-                std::println("Failed to send message header!");
+                std::println("[CONNECTION] Failed to send message header!");
         });
 
         // Send body
-        if (message.Header.Size > 0)
+        asio::async_write(m_Socket, asio::buffer(message.Body.data(), message.Header.Size),
+            [](const asio::error_code ec, const std::size_t size)
         {
-            asio::async_write(*m_Socket, asio::buffer(message.Body.data(), message.Header.Size),
-                [](const asio::error_code ec, const std::size_t size)
-            {
-                if (ec)
-                    std::println("Failed to send message body!");
-            });
-        }
+            if (ec)
+                std::println("[CONNECTION] Failed to send message body!");
+        });
     }
 
     void Connection::Disconnect()
     {
-        if (m_DisconnectCallback)
-            m_DisconnectCallback(*this);
+        // if (m_Socket->is_open())
+        // {
+        //     asio::error_code _;
+        //     m_Socket->shutdown(asio::ip::tcp::socket::shutdown_both, _);
+        //     m_Socket->close(_);
+        // }
+
+        std::println("[CONNECTION] Disconnect!");
+
+        // if (m_DisconnectCallback)
+        //     m_DisconnectCallback(*this);
     }
 
     void Connection::ReadMessageHeader(std::shared_ptr<Message> message)
     {
-        asio::async_read(*m_Socket, asio::buffer(&message->Header, sizeof(MessageHeader)),
-            [this, message](const asio::error_code ec, const size_t size)
+        auto self = shared_from_this();
+        asio::async_read(m_Socket, asio::buffer(&message->Header, sizeof(MessageHeader)),
+            [self, message](const asio::error_code ec, const size_t size)
         {
             if (!ec)
-                ReadMessageBody(message);
+            {
+                if (message->Header.Size > 0)
+                    self->ReadMessageBody(message);
+            }
             else
-                Disconnect();
+            {
+                std::println("[CONNECTION] Error reading message header: {}", ec.message());
+                self->Disconnect();
+            }
         });
     }
 
@@ -71,18 +90,22 @@ namespace IMChat
     {
         message->Body.resize(message->Header.Size);
 
-        asio::async_read(*m_Socket, asio::buffer(message->Body.data(), message->Header.Size),
-            [this, message] (const asio::error_code ec, const size_t size)
+        auto self = shared_from_this();
+        asio::async_read(m_Socket, asio::buffer(message->Body.data(), message->Header.Size),
+            [self, message] (const asio::error_code ec, const size_t size)
         {
             if (!ec)
             {
-                if (m_ReadCallback)
-                    m_ReadCallback(*this, message);
+                if (self->m_ReadCallback)
+                    self->m_ReadCallback(*self, message);
 
-                ReadMessageHeader(message);
+                self->ReadMessageHeader(std::make_shared<Message>());
             }
             else
-                Disconnect();
+            {
+                std::println("[CONNECTION] Error reading message body: {}", ec.message());
+                self->Disconnect();
+            }
         });
     }
 }

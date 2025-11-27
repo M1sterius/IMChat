@@ -14,3 +14,4 @@ typedef char byte_t;
 #include "Message.hpp"
 #include "Connection.hpp"
 #include "TSQueue.hpp"
+#include "Utility.hpp"

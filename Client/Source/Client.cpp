@@ -1,20 +1,27 @@
 #include "Client.hpp"
 
+#include <iostream>
 #include <print>
+
+#include "nlohmann_json/json.hpp"
 
 namespace IMChat::Client
 {
     Client::Client(const char* ip, const uint16_t port)
-        : m_Connection(asio::ip::tcp::socket(m_Context), 0)
+        : m_IsLoggedIn(false)
     {
         auto idleWork = asio::make_work_guard(m_Context);
         m_Worker = std::thread([this] { m_Context.run(); });
 
+        asio::ip::tcp::socket socket(m_Context);
+
         const auto server = asio::ip::tcp::endpoint(asio::ip::make_address(ip), port);
-        m_Connection.GetSocket()->connect(server);
+        socket.connect(server);
+
+        m_Connection = std::make_unique<Connection>(std::move(socket));
 
         // Use lambda or std::bind to pass a callback method
-        m_Connection.SetReadMessageCallback([this](const Connection& client, std::shared_ptr<Message> msg)
+        m_Connection->SetReadMessageCallback([this](const Connection& client, std::shared_ptr<Message> msg)
         {
             this->OnReceiveMessage(client, msg);
         });
@@ -26,19 +33,38 @@ namespace IMChat::Client
         m_Worker.join();
     }
 
-    bool Client::IsConnected() const
+    void Client::Run()
     {
-        return m_Connection.IsOpen();
+        // if (!m_IsLoggedIn)
+        // {
+        //     std::println("You're not logged in! Please enter username and password.");
+        //
+        //     std::print("Enter username:");
+        //     const auto username = InputString();
+        //
+        //     std::print("Enter password:");
+        //     const auto password = InputString();
+        //
+        //     auto json = nlohmann::json();
+        //     json["Username"] = username;
+        //     json["Password"] = password;
+        //
+        //     auto request = Message::MakeLoginRequest(json.dump());
+        // }
+
+        std::string line;
+        while (m_Connection->IsOpen())
+        {
+            std::getline(std::cin, line);
+            m_Connection->SendMessage(Message::MakeText(line));
+        }
+
+        std::println("Connection to the server has been lost!");
     }
 
-    void Client::SendTextMessage(const std::string& text)
+    void Client::SendMessage(const Message& message)
     {
-        auto message = Message();
-        message.Header.Type = MessageType::TestMessage;
-        message.Header.Size = text.size();
-        message.Body = std::vector(text.begin(), text.end());
-
-        m_Connection.SendMessage(message);
+        m_Connection->SendMessage(message);
     }
 
     void Client::OnReceiveMessage(const Connection& connection, std::shared_ptr<Message> message)
