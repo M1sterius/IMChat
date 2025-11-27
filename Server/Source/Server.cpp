@@ -35,17 +35,20 @@ namespace IMChat::Server
             if (!ec)
             {
                 std::println("[SERVER] Client connected at {}:{}.", socket.remote_endpoint().address().to_string(), socket.remote_endpoint().port());
-                m_Clients.emplace_back(std::make_shared<Connection>(std::move(socket), m_IDs++));
 
-                m_Clients.back()->SetReadMessageCallback([this](const Connection& client, std::shared_ptr<Message> msg)
+                m_Clients.emplace_back(Connection::Make(std::move(socket), m_IDs++));
+
+                m_Clients.back()->SetReadMessageCallback([this](std::shared_ptr<Connection> client, std::shared_ptr<Message> msg)
                 {
                     this->OnReceiveMessage(client, msg);
                 });
 
-                // m_Clients.back().SetDisconnectCallback([this](const Connection& client)
-                // {
-                //     this->OnClientDisconnect(client);
-                // });
+                m_Clients.back()->SetDisconnectCallback([this](std::shared_ptr<Connection> client)
+                {
+                    this->OnClientDisconnect(client);
+                });
+
+                m_Clients.back()->Start();
             }
             else
             {
@@ -56,7 +59,7 @@ namespace IMChat::Server
         });
     }
 
-    void Server::OnReceiveMessage(const Connection& connection, const std::shared_ptr<Message>& message)
+    void Server::OnReceiveMessage(std::shared_ptr<Connection> connection, const std::shared_ptr<Message>& message)
     {
         switch (message->Header.Type)
         {
@@ -67,27 +70,27 @@ namespace IMChat::Server
                 ProcessLoginRequest(connection, message);
                 break;
             default:
-                std::println("Invalid message received from client {}!", connection.GetID());
+                std::println("Invalid message received from client {}!", connection->GetID());
         }
     }
 
-    void Server::OnClientDisconnect(const Connection& connection)
+    void Server::OnClientDisconnect(std::shared_ptr<Connection> connection)
     {
-        const auto ID = connection.GetID();
+        const auto ID = connection->GetID();
         std::println("[SERVER] Client {} disconnected!", ID);
         m_Clients.remove_if([ID](const std::shared_ptr<Connection>& client) { return client->GetID() == ID; });
     }
 
-    void Server::ProcessTextMessage(const Connection& connection, const std::shared_ptr<Message>& message)
+    void Server::ProcessTextMessage(std::shared_ptr<Connection> connection, const std::shared_ptr<Message>& message)
     {
-        std::print("[SERVER] Received text (Client {}, {} bytes): ", connection.GetID(), message->Header.Size);
+        std::print("[SERVER] Received text (Client {}, {} bytes): ", connection->GetID(), message->Header.Size);
         std::cout.write(message->Body.data(), message->Header.Size);
         std::cout << '\n';
     }
 
-    void Server::ProcessLoginRequest(const Connection& connection, const std::shared_ptr<Message>& message)
+    void Server::ProcessLoginRequest(std::shared_ptr<Connection> connection, const std::shared_ptr<Message>& message)
     {
-        std::println("[SERVER] Received login request from client {}.", connection.GetID());
+        std::println("[SERVER] Received login request from client {}.", connection->GetID());
 
         const auto json = nlohmann::json(message->Body);
 

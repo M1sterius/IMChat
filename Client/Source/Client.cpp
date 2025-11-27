@@ -18,13 +18,15 @@ namespace IMChat::Client
         const auto server = asio::ip::tcp::endpoint(asio::ip::make_address(ip), port);
         socket.connect(server);
 
-        m_Connection = std::make_unique<Connection>(std::move(socket));
+        m_Connection = Connection::Make(std::move(socket));
 
         // Use lambda or std::bind to pass a callback method
-        m_Connection->SetReadMessageCallback([this](const Connection& client, std::shared_ptr<Message> msg)
+        m_Connection->SetReadMessageCallback([this](std::shared_ptr<Connection> client, std::shared_ptr<Message> msg)
         {
             this->OnReceiveMessage(client, msg);
         });
+
+        m_Connection->Start();
     }
 
     Client::~Client()
@@ -67,7 +69,7 @@ namespace IMChat::Client
         m_Connection->SendMessage(message);
     }
 
-    void Client::OnReceiveMessage(const Connection& connection, std::shared_ptr<Message> message)
+    void Client::OnReceiveMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message)
     {
 
     }

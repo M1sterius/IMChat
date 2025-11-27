@@ -26,10 +26,10 @@ namespace IMChat::Server
         uint32_t m_IDs;
 
         void WaitForClientConnection();
-        void OnReceiveMessage(const Connection& connection, const std::shared_ptr<Message>& message);
-        void OnClientDisconnect(const Connection& connection);
+        void OnReceiveMessage(std::shared_ptr<Connection> connection, const std::shared_ptr<Message>& message);
+        void OnClientDisconnect(std::shared_ptr<Connection> connection);
 
-        void ProcessTextMessage(const Connection& connection, const std::shared_ptr<Message>& message);
-        void ProcessLoginRequest(const Connection& connection, const std::shared_ptr<Message>& message);
+        void ProcessTextMessage(std::shared_ptr<Connection> connection, const std::shared_ptr<Message>& message);
+        void ProcessLoginRequest(std::shared_ptr<Connection> connection, const std::shared_ptr<Message>& message);
     };
 }
