@@ -23,7 +23,6 @@ namespace IMChat::Client
         asio::io_context m_Context;
         std::thread m_Worker;
         std::shared_ptr<Connection> m_Connection;
-
         bool m_IsLoggedIn;
 
         void SendMessage(const Message& message);

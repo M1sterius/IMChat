@@ -47,8 +47,6 @@ namespace IMChat::Server
                 {
                     this->OnClientDisconnect(client);
                 });
-
-                m_Clients.back()->Start();
             }
             else
             {

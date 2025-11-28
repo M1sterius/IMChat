@@ -25,8 +25,6 @@ namespace IMChat::Client
         {
             this->OnReceiveMessage(client, msg);
         });
-
-        m_Connection->Start();
     }
 
     Client::~Client()
