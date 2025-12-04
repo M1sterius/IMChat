@@ -90,14 +90,7 @@ namespace IMChat::Server
     {
         std::println("[SERVER] Received login request from client {}.", connection->GetID());
 
-        const auto json = nlohmann::json(message->Body);
-
-        if (!json.contains("Username") || !json.contains("Password"))
-        {
-            // TODO: Send login denied response
-        }
-
-        const auto username = json["Username"].get<std::string>();
-        const auto password = json["Password"].get<std::string>();
+        const auto json = ParseJson(message->Body, message->Header.Size);
+        std::println("{}", json.dump(4));
     }
 }

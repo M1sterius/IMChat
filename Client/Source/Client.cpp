@@ -35,28 +35,31 @@ namespace IMChat::Client
 
     void Client::Run()
     {
-        // if (!m_IsLoggedIn)
-        // {
-        //     std::println("You're not logged in! Please enter username and password.");
-        //
-        //     std::print("Enter username:");
-        //     const auto username = InputString();
-        //
-        //     std::print("Enter password:");
-        //     const auto password = InputString();
-        //
-        //     auto json = nlohmann::json();
-        //     json["Username"] = username;
-        //     json["Password"] = password;
-        //
-        //     auto request = Message::MakeLoginRequest(json.dump());
-        // }
+        if (!m_Connection->IsOpen())
+        {
+            std::println("Failed to connect to the server!");
+            return;
+        }
 
-        std::string line;
+        if (!m_IsLoggedIn)
+        {
+            std::println("You're not logged in! Please enter username and password.");
+
+            const auto username = InputString("Enter username:", 5, 20, "\"!#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
+            const auto password = InputString("Enter password:", 6, 36, "\"!#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
+
+            auto json = nlohmann::json();
+            json["Username"] = username;
+            json["PasswordHash"] = SHA256(password);
+
+            auto request = Message::MakeLoginRequest(json.dump());
+            m_Connection->SendMessage(request);
+        }
+
         while (m_Connection->IsOpen())
         {
-            std::getline(std::cin, line);
-            m_Connection->SendMessage(Message::MakeText(line));
+            const auto input = InputString("Enter text message:", 1, 20, "$%~");
+            m_Connection->SendMessage(Message::MakeText(input));
         }
 
         std::println("Connection to the server has been lost!");
