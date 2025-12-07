@@ -63,4 +63,10 @@ namespace IMChat
         std::string jsonStr(data.data(), size);
         return nlohmann::json::parse(jsonStr);
     }
+
+    std::string GetEnv(const char* name)
+    {
+        const auto var = std::getenv(name);
+        return std::string(var ? var : "");
+    }
 }

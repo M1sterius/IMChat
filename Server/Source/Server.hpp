@@ -4,15 +4,24 @@
 
 #define ASIO_STANDALONE
 #include "asio.hpp"
+#include "pqxx/pqxx"
 
 #include <thread>
 #include <memory>
 #include <list>
+#include <unordered_map>
 
 namespace IMChat::Server
 {
     class Server
     {
+    private:
+        struct ClientConnection
+        {
+            std::shared_ptr<Connection> Connection;
+            bool LoggedIn;
+            std::string Username;
+        };
     public:
         explicit Server(const uint16_t port);
         ~Server();
@@ -21,9 +30,12 @@ namespace IMChat::Server
     private:
         asio::io_context m_Context;
         std::thread m_Worker;
-        asio::ip::tcp::acceptor m_Acceptor;
-        std::list<std::shared_ptr<Connection>> m_Clients;
+        std::unique_ptr<asio::ip::tcp::acceptor> m_Acceptor;
+        std::unique_ptr<pqxx::connection> m_dbConnection;
+        // std::list<std::shared_ptr<Connection>> m_Clients;
+        std::unordered_map<uint32_t, ClientConnection> m_Clients;
         uint32_t m_IDs;
+        bool m_StartupOK;
 
         void WaitForClientConnection();
         void OnReceiveMessage(std::shared_ptr<Connection> connection, const std::shared_ptr<Message>& message);

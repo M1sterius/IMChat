@@ -26,7 +26,8 @@ namespace IMChat::Client
         bool m_IsLoggedIn;
 
         void SendMessage(const Message& message);
-
         void OnReceiveMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
+
+        void ProcessLoginResponse(std::shared_ptr<Connection> connection, const std::shared_ptr<Message>& message);
     };
 }

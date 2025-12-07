@@ -9,4 +9,5 @@ namespace IMChat
     std::string InputString(const char* text, const uint32_t minLength, const uint32_t maxLength, const char* restrictedSymbols);
     std::string SHA256(const std::string& str);
     nlohmann::json ParseJson(const std::vector<char>& data, const size_t size);
+    std::string GetEnv(const char* name);
 }

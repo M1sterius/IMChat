@@ -46,7 +46,7 @@ namespace IMChat::Client
             std::println("You're not logged in! Please enter username and password.");
 
             const auto username = InputString("Enter username:", 5, 20, "\"!#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
-            const auto password = InputString("Enter password:", 6, 36, "\"!#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
+            const auto password = InputString("Enter password:", 5, 36, "\"!#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
 
             auto json = nlohmann::json();
             json["Username"] = username;
@@ -56,9 +56,11 @@ namespace IMChat::Client
             m_Connection->SendMessage(request);
         }
 
+        // TODO: Wait until login response
+
         while (m_Connection->IsOpen())
         {
-            const auto input = InputString("Enter text message:", 1, 20, "$%~");
+            const auto input = InputString("Enter text message:", 1, 500, "$%~");
             m_Connection->SendMessage(Message::MakeText(input));
         }
 
@@ -72,6 +74,32 @@ namespace IMChat::Client
 
     void Client::OnReceiveMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message)
     {
+        switch (message->Header.Type)
+        {
+            case MessageType::LoginResponse:
+                ProcessLoginResponse(connection, message);
+                break;
+            default:
+                std::println("Received invalid message");
+        }
+    }
 
+    void Client::ProcessLoginResponse(std::shared_ptr<Connection> connection, const std::shared_ptr<Message>& message)
+    {
+        if (m_IsLoggedIn)
+            return;
+
+        const auto json = ParseJson(message->Body, message->Header.Size);
+
+        const auto response = json["Response"].get<std::string>();
+        const auto reason = json["Reason"].get<std::string>();
+
+        if (response == "Approved")
+        {
+            std::println("Logged in successfully!");
+            m_IsLoggedIn = true;
+        }
+        else
+            std::println("Login denied. Reason: {}", reason);
     }
 }
