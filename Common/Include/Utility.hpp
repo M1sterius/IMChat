@@ -10,4 +10,5 @@ namespace IMChat
     std::string SHA256(const std::string& str);
     nlohmann::json ParseJson(const std::vector<char>& data, const size_t size);
     std::string GetEnv(const char* name);
+    void SleepUntil(const std::function<bool()>& predicate, const uint32_t timeoutMs);
 }

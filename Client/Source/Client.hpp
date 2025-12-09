@@ -23,7 +23,10 @@ namespace IMChat::Client
         asio::io_context m_Context;
         std::thread m_Worker;
         std::shared_ptr<Connection> m_Connection;
-        bool m_IsLoggedIn;
+        bool m_LoggedIn;
+        bool m_AuthComplete;
+
+        void TryLogin();
 
         void SendMessage(const Message& message);
         void OnReceiveMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);

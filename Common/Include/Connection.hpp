@@ -25,6 +25,7 @@ namespace IMChat
         ~Connection();
 
         void Start();
+        void Disconnect();
 
         bool IsOpen() const;
         uint32_t GetID() const { return m_ID; }
@@ -41,7 +42,6 @@ namespace IMChat
         std::function<void(std::shared_ptr<Connection>, std::shared_ptr<Message>)> m_ReadCallback;
         std::function<void(std::shared_ptr<Connection>)> m_DisconnectCallback;
 
-        void Disconnect();
         void ReadMessageHeader(std::shared_ptr<Message> message);
         void ReadMessageBody(std::shared_ptr<Message> message);
     };

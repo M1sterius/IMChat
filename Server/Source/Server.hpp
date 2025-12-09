@@ -8,7 +8,6 @@
 
 #include <thread>
 #include <memory>
-#include <list>
 #include <unordered_map>
 
 namespace IMChat::Server
@@ -32,7 +31,6 @@ namespace IMChat::Server
         std::thread m_Worker;
         std::unique_ptr<asio::ip::tcp::acceptor> m_Acceptor;
         std::unique_ptr<pqxx::connection> m_dbConnection;
-        // std::list<std::shared_ptr<Connection>> m_Clients;
         std::unordered_map<uint32_t, ClientConnection> m_Clients;
         uint32_t m_IDs;
         bool m_StartupOK;

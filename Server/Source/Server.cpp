@@ -21,7 +21,7 @@ namespace IMChat::Server
 
             if (user.empty() || dbname.empty() || password.empty())
             {
-                std::println("[SERVER] Failed to obtain db connection string environment variables.");
+                std::println("[SERVER] Failed to obtain environment variables for db connection string.");
                 return;
             }
 

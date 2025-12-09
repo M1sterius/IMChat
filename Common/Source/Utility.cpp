@@ -1,7 +1,9 @@
 #include "Utility.hpp"
 
 #include <print>
+#include <chrono>
 #include <iostream>
+#include <thread>
 #include <unordered_set>
 
 #include "picosha2/picosha2.h"
@@ -68,5 +70,22 @@ namespace IMChat
     {
         const auto var = std::getenv(name);
         return std::string(var ? var : "");
+    }
+
+    void SleepUntil(const std::function<bool()>& predicate, const uint32_t timeoutMs)
+    {
+        using namespace std::chrono_literals;
+
+        const auto start = std::chrono::high_resolution_clock::now();
+        while (predicate())
+        {
+            const auto end = std::chrono::high_resolution_clock::now();
+            const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+            if (elapsedMs.count() > timeoutMs)
+                break;
+
+            std::this_thread::sleep_for(100ms);
+        }
     }
 }
