@@ -2,6 +2,7 @@
 
 #include <print>
 #include <chrono>
+#include <iostream>
 
 #include "nlohmann_json/json.hpp"
 
@@ -48,11 +49,11 @@ namespace IMChat::Client
             m_AuthComplete = false;
             std::println("Enter your credentials to log in.");
 
-            const auto username = InputString("Enter username:", 5, 20, "\"!#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
+            m_Username = InputString("Enter username:", 5, 20, "\"!#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
             const auto password = InputString("Enter password:", 5, 36, "\"!#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
 
             auto json = nlohmann::json();
-            json["Username"] = username;
+            json["Username"] = m_Username;
             json["PasswordHash"] = SHA256(password);
 
             auto request = Message::MakeLoginRequest(json.dump());
@@ -63,7 +64,7 @@ namespace IMChat::Client
 
         while (m_Connection->IsOpen())
         {
-            const auto input = InputString("Enter text message:", 1, 500, "$%~");
+            const auto input = InputString("", 1, 500, "$%~");
             m_Connection->SendMessage(Message::MakeText(input));
         }
 
@@ -85,24 +86,22 @@ namespace IMChat::Client
         m_Connection->SendMessage(request);
     }
 
-    void Client::SendMessage(const Message& message)
-    {
-        m_Connection->SendMessage(message);
-    }
-
     void Client::OnReceiveMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message)
     {
         switch (message->Header.Type)
         {
-            case MessageType::LoginResponse:
-                ProcessLoginResponse(connection, message);
-                break;
-            default:
-                std::println("Received invalid message");
+        case MessageType::LoginResponse:
+            ProcessLoginResponse(connection, message);
+            break;
+        case MessageType::HistoryUpdate:
+            ProcessChatHistoryUpdate(connection, message);
+            break;
+        default:
+            std::println("Received invalid message");
         }
     }
 
-    void Client::ProcessLoginResponse(std::shared_ptr<Connection> connection, const std::shared_ptr<Message>& message)
+    void Client::ProcessLoginResponse(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message)
     {
         if (m_LoggedIn)
             return;
@@ -114,7 +113,7 @@ namespace IMChat::Client
 
         if (response == "Approved")
         {
-            std::println("Logged in successfully!");
+            std::println("Logged in successfully! Type you messages below!");
             m_LoggedIn = true;
         }
         else
@@ -123,5 +122,16 @@ namespace IMChat::Client
         }
 
         m_AuthComplete = true;
+    }
+
+    void Client::ProcessChatHistoryUpdate(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message)
+    {
+        const auto json = ParseJson(message->Body, message->Header.Size);
+
+        if (!json.contains("Sender") || !json.contains("Timestamp") || !json.contains("Text"))
+            return; // Corrupted message
+
+        std::print("{}: ", json["Sender"].get<std::string>());
+        std::cout << json["Text"].get<std::string>() << '\n';
     }
 }

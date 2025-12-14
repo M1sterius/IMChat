@@ -94,7 +94,7 @@ namespace IMChat::Server
         });
     }
 
-    void Server::OnReceiveMessage(std::shared_ptr<Connection> connection, const std::shared_ptr<Message>& message)
+    void Server::OnReceiveMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message)
     {
         switch (message->Header.Type)
         {
@@ -112,17 +112,48 @@ namespace IMChat::Server
     void Server::OnClientDisconnect(std::shared_ptr<Connection> connection)
     {
         const auto ID = connection->GetID();
-        std::println("[SERVER] Client {} disconnected!", ID);
+        std::println("[SERVER] Client {} ({}) disconnected!", ID, m_Clients[connection->GetID()].Username);
         m_Clients.erase(ID);
     }
 
-    void Server::ProcessTextMessage(std::shared_ptr<Connection> connection, const std::shared_ptr<Message>& message)
+    void Server::SendUpdateChatHistory(std::shared_ptr<Connection> sender, std::shared_ptr<Message> message)
+    {
+        auto json = nlohmann::json();
+        json["Sender"] = m_Clients[sender->GetID()].Username;
+        json["Timestamp"] = "TODO";
+        json["Text"] = std::string(message->Body.begin(), message->Body.end());
+        const auto updateMessage = Message::MakeHistoryUpdate(json.dump());
+
+        for (const auto& [id, client] : m_Clients)
+        {
+            if (id == sender->GetID())
+                continue;
+
+            client.Connection->SendMessage(updateMessage);
+        }
+    }
+
+    void Server::ProcessTextMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message)
     {
         if (const auto& client = m_Clients[connection->GetID()]; client.LoggedIn)
         {
-            std::print("{}: ", client.Username);
-            std::cout.write(message->Body.data(), message->Header.Size);
-            std::cout << '\n';
+            try
+            {
+                pqxx::work tx{*m_dbConnection};
+                tx.exec_params("INSERT INTO messages (user_id, message, timestamp) VALUES ($1, $2, NOW());",
+                    client.DatabaseID, std::string_view(message->Body.begin(), message->Body.end()));
+                tx.commit();
+
+                std::print("{}: ", client.Username);
+                std::cout.write(message->Body.data(), message->Header.Size);
+                std::cout << '\n';
+
+                SendUpdateChatHistory(connection, message);
+            }
+            catch (const std::exception& e)
+            {
+                std::println("[SERVER] Failed to add incoming message to db. Error: {}.", e.what());
+            }
         }
         else
         {
@@ -130,7 +161,7 @@ namespace IMChat::Server
         }
     }
 
-    void Server::ProcessLoginRequest(std::shared_ptr<Connection> connection, const std::shared_ptr<Message>& message)
+    void Server::ProcessLoginRequest(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message)
     {
         std::println("[SERVER] Received login request from client {}.", connection->GetID());
 
@@ -154,7 +185,7 @@ namespace IMChat::Server
         try
         {
             pqxx::work tx{*m_dbConnection};
-            const auto [qPasswordHash] = tx.query1<std::string>("SELECT password_hash FROM users WHERE username=$1;", username);
+            const auto [qID, qPasswordHash] = tx.query1<uint64_t, std::string>("SELECT id, password_hash FROM users WHERE username=$1;", username);
 
             if (qPasswordHash == passwordHash)
             {
@@ -162,6 +193,7 @@ namespace IMChat::Server
                 response["Reason"] = "";
                 m_Clients[connection->GetID()].LoggedIn = true;
                 m_Clients[connection->GetID()].Username = username;
+                m_Clients[connection->GetID()].DatabaseID = qID;
 
                 std::println("[SERVER] User '{}' logged in successfully", username);
             }

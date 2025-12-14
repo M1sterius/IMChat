@@ -20,6 +20,7 @@ namespace IMChat::Server
             std::shared_ptr<Connection> Connection;
             bool LoggedIn;
             std::string Username;
+            uint64_t DatabaseID;
         };
     public:
         explicit Server(const uint16_t port);
@@ -35,11 +36,13 @@ namespace IMChat::Server
         uint32_t m_IDs;
         bool m_StartupOK;
 
+        void SendUpdateChatHistory(std::shared_ptr<Connection> sender, std::shared_ptr<Message> message);
+
         void WaitForClientConnection();
-        void OnReceiveMessage(std::shared_ptr<Connection> connection, const std::shared_ptr<Message>& message);
+        void OnReceiveMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
         void OnClientDisconnect(std::shared_ptr<Connection> connection);
 
-        void ProcessTextMessage(std::shared_ptr<Connection> connection, const std::shared_ptr<Message>& message);
-        void ProcessLoginRequest(std::shared_ptr<Connection> connection, const std::shared_ptr<Message>& message);
+        void ProcessTextMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
+        void ProcessLoginRequest(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
     };
 }

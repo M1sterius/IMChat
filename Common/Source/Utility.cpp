@@ -2,6 +2,7 @@
 
 #include <print>
 #include <chrono>
+#include <format>
 #include <iostream>
 #include <thread>
 #include <unordered_set>
@@ -87,5 +88,22 @@ namespace IMChat
 
             std::this_thread::sleep_for(100ms);
         }
+    }
+
+    std::string GetTimeHhMm()
+    {
+        const auto now = std::chrono::system_clock::now();
+        const auto t   = std::chrono::system_clock::to_time_t(now);
+        std::tm tm{};
+
+    #ifdef _WIN32
+        localtime_s(&tm, &t);
+    #else
+        localtime_r(&t, &tm);
+    #endif
+
+        std::ostringstream oss;
+        oss << std::put_time(&tm, "%H:%M");
+        return oss.str();
     }
 }
