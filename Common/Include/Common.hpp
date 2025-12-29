@@ -8,6 +8,8 @@ typedef char byte_t;
 #define IMCHAT_SERVER_IP "127.0.0.1"
 #define IMCHAT_SERVER_PORT 9997
 
+#define MAX_TEXT_MESSAGE_LENGTH 500
+
 #define KB(n) (n * 1024)
 #define MB(n) (n * 1024 * 1024)
 

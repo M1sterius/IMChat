@@ -119,9 +119,14 @@ namespace IMChat::Server
     void Server::SendUpdateChatHistory(std::shared_ptr<Connection> sender, std::shared_ptr<Message> message)
     {
         auto json = nlohmann::json();
-        json["Sender"] = m_Clients[sender->GetID()].Username;
-        json["Timestamp"] = "TODO";
-        json["Text"] = std::string(message->Body.begin(), message->Body.end());
+        json["Messages"] = nlohmann::json::array();
+
+        json["Messages"].push_back({
+            {"Sender", m_Clients[sender->GetID()].Username},
+            {"Timestamp", "TODO"},
+            {"Text", std::string(message->Body.begin(), message->Body.end())}
+        });
+
         const auto updateMessage = Message::MakeHistoryUpdate(json.dump());
 
         for (const auto& [id, client] : m_Clients)
@@ -133,6 +138,39 @@ namespace IMChat::Server
         }
     }
 
+    void Server::SendChatHistory(std::shared_ptr<Connection> receiver, const uint32_t maxMessages)
+    {
+        auto message = nlohmann::json{
+            {"Sender", ""},
+            {"Timestamp", ""},
+            {"Text", ""},
+        };
+
+        auto json = nlohmann::json();
+        json["Messages"] = nlohmann::json::array();
+
+        try
+        {
+            pqxx::work tx{*m_dbConnection};
+            for (auto [username, text, timestamp] : tx.stream<std::string, std::string, std::string>(
+                "SELECT users.username, messages.message, messages.timestamp FROM messages JOIN users ON messages.user_id = users.id ORDER BY timestamp ASC LIMIT " + std::to_string(maxMessages)))
+            {
+                message["Sender"] = username;
+                message["Timestamp"] = timestamp;
+                message["Text"] = text;
+
+                json["Messages"].push_back(message);
+            }
+            tx.commit();
+
+            receiver->SendMessage(Message::MakeHistoryUpdate(json.dump()));
+        }
+        catch (const std::exception& e)
+        {
+            std::println("[SERVER] Failed to query chat history for user {}. Error: {}.", receiver->GetID(), e.what());
+        }
+    }
+
     void Server::ProcessTextMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message)
     {
         if (const auto& client = m_Clients[connection->GetID()]; client.LoggedIn)
@@ -140,7 +178,7 @@ namespace IMChat::Server
             try
             {
                 pqxx::work tx{*m_dbConnection};
-                tx.exec_params("INSERT INTO messages (user_id, message, timestamp) VALUES ($1, $2, NOW());",
+                tx.exec_params("INSERT INTO messages (user_id, message, timestamp) VALUES ($1, $2, NOW())",
                     client.DatabaseID, std::string_view(message->Body.begin(), message->Body.end()));
                 tx.commit();
 
@@ -157,7 +195,7 @@ namespace IMChat::Server
         }
         else
         {
-            std::println("[SERVER] Received a message from a not logged-in client. Connection ID: {}", connection->GetID());
+            std::println("[SERVER] Received a message from an unauthenticated client. Connection ID: {}", connection->GetID());
         }
     }
 
@@ -185,7 +223,8 @@ namespace IMChat::Server
         try
         {
             pqxx::work tx{*m_dbConnection};
-            const auto [qID, qPasswordHash] = tx.query1<uint64_t, std::string>("SELECT id, password_hash FROM users WHERE username=$1;", username);
+            const auto [qID, qPasswordHash] = tx.query1<uint64_t, std::string>("SELECT id, password_hash FROM users WHERE username=$1", username);
+            tx.commit();
 
             if (qPasswordHash == passwordHash)
             {
@@ -196,6 +235,7 @@ namespace IMChat::Server
                 m_Clients[connection->GetID()].DatabaseID = qID;
 
                 std::println("[SERVER] User '{}' logged in successfully", username);
+                SendChatHistory(connection, 100);
             }
             else
             {

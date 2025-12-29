@@ -64,26 +64,11 @@ namespace IMChat::Client
 
         while (m_Connection->IsOpen())
         {
-            const auto input = InputString("", 1, 500, "$%~");
+            const auto input = InputString("", 1, MAX_TEXT_MESSAGE_LENGTH, "");
             m_Connection->SendMessage(Message::MakeText(input));
         }
 
         std::println("Connection to the server has been lost!");
-    }
-
-    void Client::TryLogin()
-    {
-        std::println("You're not logged in! Please enter username and password.");
-
-        const auto username = InputString("Enter username:", 5, 20, "\"!#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
-        const auto password = InputString("Enter password:", 5, 36, "\"!#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
-
-        auto json = nlohmann::json();
-        json["Username"] = username;
-        json["PasswordHash"] = SHA256(password);
-
-        auto request = Message::MakeLoginRequest(json.dump());
-        m_Connection->SendMessage(request);
     }
 
     void Client::OnReceiveMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message)
@@ -93,8 +78,8 @@ namespace IMChat::Client
         case MessageType::LoginResponse:
             ProcessLoginResponse(connection, message);
             break;
-        case MessageType::HistoryUpdate:
-            ProcessChatHistoryUpdate(connection, message);
+        case MessageType::ChatHistoryUpdate:
+            ProcessHistoryUpdate(connection, message);
             break;
         default:
             std::println("Received invalid message");
@@ -124,14 +109,23 @@ namespace IMChat::Client
         m_AuthComplete = true;
     }
 
-    void Client::ProcessChatHistoryUpdate(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message)
+    void Client::ProcessHistoryUpdate(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message)
     {
         const auto json = ParseJson(message->Body, message->Header.Size);
 
-        if (!json.contains("Sender") || !json.contains("Timestamp") || !json.contains("Text"))
+        if (!json.contains("Messages"))
             return; // Corrupted message
 
-        std::print("{}: ", json["Sender"].get<std::string>());
-        std::cout << json["Text"].get<std::string>() << '\n';
+        for (const auto& textMessage : json["Messages"].get<nlohmann::json::array_t>())
+        {
+            if (!textMessage.contains("Sender") || !textMessage.contains("Timestamp") || !textMessage.contains("Text"))
+                continue; // Corrupted message
+
+            const auto sender = textMessage["Sender"].get<std::string>();
+            const auto timestamp = textMessage["Timestamp"].get<std::string>();
+            const auto text = textMessage["Text"].get<std::string>();
+
+            std::print("{}: {}\n", sender, text);
+        }
     }
 }

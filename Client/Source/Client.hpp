@@ -14,6 +14,13 @@ namespace IMChat::Client
 {
     class Client
     {
+    private:
+        struct TextMessage
+        {
+            std::string Sender;
+            std::string Timestamp;
+            std::string Text;
+        };
     public:
         Client(const char* ip, const uint16_t port);
         ~Client();
@@ -27,11 +34,10 @@ namespace IMChat::Client
         bool m_LoggedIn;
         bool m_AuthComplete;
 
-        void TryLogin();
-
         void OnReceiveMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
 
         void ProcessLoginResponse(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
-        void ProcessChatHistoryUpdate(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
+
+        void ProcessHistoryUpdate(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
     };
 }
