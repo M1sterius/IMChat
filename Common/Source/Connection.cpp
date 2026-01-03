@@ -21,7 +21,8 @@ namespace IMChat
 
     void Connection::Start()
     {
-        ReadMessageHeader(std::make_shared<Message>());
+        if (m_Socket.is_open())
+            ReadMessageHeader(std::make_shared<Message>());
     }
 
     bool Connection::IsOpen() const

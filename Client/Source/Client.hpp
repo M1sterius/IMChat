@@ -37,7 +37,6 @@ namespace IMChat::Client
         void OnReceiveMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
 
         void ProcessLoginResponse(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
-
         void ProcessHistoryUpdate(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
     };
 }

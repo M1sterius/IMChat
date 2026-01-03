@@ -11,13 +11,15 @@ namespace IMChat::Client
     Client::Client(const char* ip, const uint16_t port)
         : m_LoggedIn(false), m_AuthComplete(false)
     {
+        asio::error_code ec;
         auto idleWork = asio::make_work_guard(m_Context);
         m_Worker = std::thread([this] { m_Context.run(); });
 
         asio::ip::tcp::socket socket(m_Context);
+        socket.connect(asio::ip::tcp::endpoint(asio::ip::make_address(ip), port), ec);
 
-        const auto server = asio::ip::tcp::endpoint(asio::ip::make_address(ip), port);
-        socket.connect(server);
+        if (ec)
+            return;
 
         m_Connection = Connection::Make(std::move(socket));
 
@@ -37,7 +39,7 @@ namespace IMChat::Client
 
     void Client::Run()
     {
-        if (!m_Connection->IsOpen())
+        if (!m_Connection || !m_Connection->IsOpen())
         {
             std::println("Failed to connect to the server. Terminating client.");
             return;

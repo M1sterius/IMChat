@@ -21,6 +21,7 @@ namespace IMChat
     public:
         static std::shared_ptr<Connection> Make(asio::ip::tcp::socket socket, const uint32_t ID = 0);
 
+        // DO NOT USE THE CONSTRUCTOR DIRECTLY! ALWAYS USE 'Make' METHOD instead.
         explicit Connection(asio::ip::tcp::socket socket, const uint32_t ID = 0);
         ~Connection();
 
