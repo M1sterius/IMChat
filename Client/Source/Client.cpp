@@ -6,11 +6,27 @@
 
 #include "nlohmann_json/json.hpp"
 
+#ifdef _WIN32
+#include "windows.h"
+#endif
+
 namespace IMChat::Client
 {
     Client::Client(const char* ip, const uint16_t port)
         : m_LoggedIn(false), m_AuthComplete(false)
     {
+        try
+        {
+            m_UI = std::make_unique<ClientUI>();
+
+            #ifdef _WIN32
+            FreeConsole();
+            #endif
+        } catch (const std::exception& e) {
+            std::println("Failed to initialize client UI. Error: {}", e.what());
+            return;
+        }
+
         asio::error_code ec;
         auto idleWork = asio::make_work_guard(m_Context);
         m_Worker = std::thread([this] { m_Context.run(); });
@@ -39,38 +55,54 @@ namespace IMChat::Client
 
     void Client::Run()
     {
-        if (!m_Connection || !m_Connection->IsOpen())
-        {
-            std::println("Failed to connect to the server. Terminating client.");
+        if (!m_UI)
             return;
-        }
 
-        // Auth loop
-        while (!m_LoggedIn)
+        while (!m_UI->WindowShouldClose())
         {
-            m_AuthComplete = false;
-            std::println("Enter your credentials to log in.");
+            m_UI->BeginFrame();
 
-            m_Username = InputString("Enter username:", 5, 20, "\"!#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
-            const auto password = InputString("Enter password:", 5, 36, "\"!#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
+            if (!m_Connection || !m_Connection->IsOpen())
+            {
+                if (m_UI->DrawErrorPopUp("Failed to connect to the server!"))
+                    return;
+            }
 
-            auto json = nlohmann::json();
-            json["Username"] = m_Username;
-            json["PasswordHash"] = SHA256(password);
-
-            auto request = Message::MakeLoginRequest(json.dump());
-            m_Connection->SendMessage(request);
-
-            SleepUntil([this] { return !m_AuthComplete; }, 10000);
+            m_UI->EndFrame();
         }
 
-        while (m_Connection->IsOpen())
-        {
-            const auto input = InputString("", 1, MAX_TEXT_MESSAGE_LENGTH, "");
-            m_Connection->SendMessage(Message::MakeText(input));
-        }
-
-        std::println("Connection to the server has been lost!");
+        // if (!m_Connection || !m_Connection->IsOpen())
+        // {
+        //     std::println("Failed to connect to the server. Terminating client.");
+        //     return;
+        // }
+        //
+        // // Auth loop
+        // while (!m_LoggedIn)
+        // {
+        //     m_AuthComplete = false;
+        //     std::println("Enter your credentials to log in.");
+        //
+        //     m_Username = InputString("Enter username:", 5, 20, "\"!#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
+        //     const auto password = InputString("Enter password:", 5, 36, "\"!#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
+        //
+        //     auto json = nlohmann::json();
+        //     json["Username"] = m_Username;
+        //     json["PasswordHash"] = SHA256(password);
+        //
+        //     auto request = Message::MakeLoginRequest(json.dump());
+        //     m_Connection->SendMessage(request);
+        //
+        //     SleepUntil([this] { return !m_AuthComplete; }, 10000);
+        // }
+        //
+        // while (m_Connection->IsOpen())
+        // {
+        //     const auto input = InputString("", 1, MAX_TEXT_MESSAGE_LENGTH, "");
+        //     m_Connection->SendMessage(Message::MakeText(input));
+        // }
+        //
+        // std::println("Connection to the server has been lost!");
     }
 
     void Client::OnReceiveMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message)

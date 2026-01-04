@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common.hpp"
+#include "ClientUI.hpp"
 
 #define ASIO_STANDALONE
 #include "asio.hpp"
@@ -33,6 +34,8 @@ namespace IMChat::Client
         std::string m_Username;
         bool m_LoggedIn;
         bool m_AuthComplete;
+
+        std::unique_ptr<ClientUI> m_UI;
 
         void OnReceiveMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
 
