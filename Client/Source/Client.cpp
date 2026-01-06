@@ -13,7 +13,7 @@
 namespace IMChat::Client
 {
     Client::Client(const char* ip, const uint16_t port)
-        : m_LoggedIn(false), m_AuthComplete(false)
+        : m_LoggedIn(false), m_AuthComplete(false), m_LoginFailed(false)
     {
         try
         {
@@ -62,10 +62,34 @@ namespace IMChat::Client
         {
             m_UI->BeginFrame();
 
-            if (!m_Connection || !m_Connection->IsOpen())
+            if (!m_Connection || !m_Connection->IsOpen()) // No server connection
             {
                 if (m_UI->DrawErrorPopUp("Failed to connect to the server!"))
                     return;
+            }
+            else if (!m_LoggedIn && m_AuthComplete) // Waiting for server response to login request
+            {
+                m_UI->DrawSimpleText("Awaiting server response...");
+            }
+            else if (!m_LoggedIn) // Login window
+            {
+                static std::string password;
+                if (m_UI->DrawLoginPopUp(m_Username, password, m_LoginFailed))
+                {
+                    m_AuthComplete = true;
+                    m_LoginFailed = false;
+
+                    auto json = nlohmann::json();
+                    json["Username"] = m_Username;
+                    json["PasswordHash"] = SHA256(password);
+
+                    auto request = Message::MakeLoginRequest(json.dump());
+                    m_Connection->SendMessage(request);
+                }
+            }
+            else // Main chat UI
+            {
+
             }
 
             m_UI->EndFrame();
@@ -138,9 +162,10 @@ namespace IMChat::Client
         else
         {
             std::println("Login denied. {}", reason);
+            m_LoginFailed = true;
         }
 
-        m_AuthComplete = true;
+        m_AuthComplete = false;
     }
 
     void Client::ProcessHistoryUpdate(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message)

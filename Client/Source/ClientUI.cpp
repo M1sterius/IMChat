@@ -19,7 +19,7 @@ namespace IMChat::Client
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 
-        m_Window = glfwCreateWindow(1280, 720, "IMChat", nullptr, nullptr);
+        m_Window = glfwCreateWindow(960, 720, "IMChat", nullptr, nullptr);
         if (!m_Window)
             throw std::runtime_error("Failed to create glfw window!");
 
@@ -57,7 +57,6 @@ namespace IMChat::Client
     {
         glfwPollEvents();
 
-        // Start ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
@@ -75,21 +74,34 @@ namespace IMChat::Client
         glfwSwapBuffers(m_Window);
     }
 
+    void ClientUI::DrawSimpleText(const std::string& text)
+    {
+        ImGui::SetNextWindowPos(
+            ImGui::GetMainViewport()->GetCenter(),
+            ImGuiCond_Always,
+            ImVec2(0.5f, 0.5f)
+        );
+
+        ImGui::Text(text.c_str(), ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
+    }
+
     bool ClientUI::DrawErrorPopUp(const std::string& text)
     {
         bool ret = false;
 
-        ImGui::OpenPopup("My Popup");
+        ImGui::OpenPopup("Error");
 
-        if (ImGui::BeginPopupModal("My Popup", nullptr,
-            ImGuiWindowFlags_AlwaysAutoResize))
+        ImGui::SetNextWindowPos(
+            ImGui::GetMainViewport()->GetCenter(),
+            ImGuiCond_Always,
+            ImVec2(0.5f, 0.5f)
+        );
+
+        if (ImGui::BeginPopupModal("Error", nullptr,
+            ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse))
         {
             ImGui::Text(text.c_str());
             ImGui::Spacing();
-
-            float buttonWidth = 20.0f;
-            float avail = ImGui::GetContentRegionAvail().x;
-            ImGui::SetCursorPosX((avail - buttonWidth) * 0.5f);
 
             if (ImGui::Button("OK"))
             {
@@ -101,5 +113,61 @@ namespace IMChat::Client
         }
 
         return ret;
+    }
+
+    bool ClientUI::DrawLoginPopUp(std::string& username, std::string& password, const bool loginFailed)
+    {
+        static char username_arr[16] = {0};
+        static char password_arr[24] = {0};
+        bool ret = false;
+
+        ImGui::OpenPopup("Login");
+
+        // Center the popup
+        ImGui::SetNextWindowSize(ImVec2(300, 0), ImGuiCond_Always);
+        ImGui::SetNextWindowPos(
+            ImGui::GetMainViewport()->GetCenter(),
+            ImGuiCond_Always,
+            ImVec2(0.5f, 0.5f)
+        );
+
+        if (ImGui::BeginPopupModal(
+                "Login",
+                nullptr,
+                ImGuiWindowFlags_NoResize |
+                ImGuiWindowFlags_NoMove |
+                ImGuiWindowFlags_NoCollapse))
+        {
+            ImGui::Text("Please log in");
+            ImGui::Separator();
+
+            // TODO: Input validation
+            ImGui::InputText("Username", username_arr, IM_ARRAYSIZE(username_arr));
+            ImGui::InputText("Password", password_arr, IM_ARRAYSIZE(password_arr),
+                             ImGuiInputTextFlags_Password);
+
+            if (loginFailed)
+            {
+                ImGui::TextColored(ImVec4(1,0,0,1), "Invalid username or password");
+            }
+
+            ImGui::Spacing();
+
+            if (ImGui::Button("Login", ImVec2(120, 0)))
+            {
+                username = username_arr;
+                password = password_arr;
+                ret = true;
+            }
+
+            ImGui::EndPopup();
+        }
+
+        return ret;
+    }
+
+    bool ClientUI::DrawMainChatUI(const std::list<TextMessage>& messages, std::string& input)
+    {
+        return false;
     }
 }

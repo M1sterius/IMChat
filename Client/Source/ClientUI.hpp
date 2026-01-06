@@ -1,8 +1,11 @@
 #pragma once
 
-struct GLFWwindow;
+#include "TextMessage.hpp"
 
 #include <string>
+#include <list>
+
+struct GLFWwindow;
 
 namespace IMChat::Client
 {
@@ -17,7 +20,10 @@ namespace IMChat::Client
         void BeginFrame();
         void EndFrame();
 
-        bool DrawErrorPopUp(const std::string& text);
+        void DrawSimpleText(const std::string& text);
+        bool DrawErrorPopUp(const std::string& text); // returns true when user clicks OK
+        bool DrawLoginPopUp(std::string& username, std::string& password, const bool loginFailed); // returns true when user clicks Login
+        bool DrawMainChatUI(const std::list<TextMessage>& messages, std::string& input); // returns true when user clicks SEND
     private:
         GLFWwindow* m_Window;
     };

@@ -203,6 +203,7 @@ namespace IMChat::Server
     {
         std::println("[SERVER] Received login request from client {}.", connection->GetID());
 
+        const auto connectionId = connection->GetID();
         const auto request = ParseJson(message->Body, message->Header.Size);
         auto response = nlohmann::json();
 
@@ -230,9 +231,9 @@ namespace IMChat::Server
             {
                 response["Response"] = "Approved";
                 response["Reason"] = "";
-                m_Clients[connection->GetID()].LoggedIn = true;
-                m_Clients[connection->GetID()].Username = username;
-                m_Clients[connection->GetID()].DatabaseID = qID;
+                m_Clients[connectionId].LoggedIn = true;
+                m_Clients[connectionId].Username = username;
+                m_Clients[connectionId].DatabaseID = qID;
 
                 std::println("[SERVER] User '{}' logged in successfully", username);
                 SendChatHistory(connection, 100);
@@ -241,6 +242,7 @@ namespace IMChat::Server
             {
                 response["Response"] = "Denied";
                 response["Reason"] = "Wrong password";
+                std::println("[SERVER] Client {} provided wrong password for user {}.", connectionId, username);
             }
         }
         catch (const std::exception& e)
