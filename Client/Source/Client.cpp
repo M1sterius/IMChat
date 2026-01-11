@@ -1,14 +1,12 @@
 #include "Client.hpp"
 
-#include <print>
-#include <chrono>
-#include <iostream>
-
 #include "nlohmann_json/json.hpp"
 
 #ifdef _WIN32
 #include "windows.h"
 #endif
+
+#include <print>
 
 namespace IMChat::Client
 {
@@ -90,7 +88,7 @@ namespace IMChat::Client
             else // Main chat UI
             {
                 static std::string input;
-                if (m_UI->DrawMainChatUI(m_MessageHistory, input))
+                if (m_UI->DrawMainChatUI(m_MessageHistory, m_ConnectedUsers, input))
                 {
                     m_Connection->SendMessage(Message::MakeText(input));
 
@@ -103,39 +101,6 @@ namespace IMChat::Client
 
             m_UI->EndFrame();
         }
-
-        // if (!m_Connection || !m_Connection->IsOpen())
-        // {
-        //     std::println("Failed to connect to the server. Terminating client.");
-        //     return;
-        // }
-        //
-        // // Auth loop
-        // while (!m_LoggedIn)
-        // {
-        //     m_AuthComplete = false;
-        //     std::println("Enter your credentials to log in.");
-        //
-        //     m_Username = InputString("Enter username:", 5, 20, "\"!#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
-        //     const auto password = InputString("Enter password:", 5, 36, "\"!#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
-        //
-        //     auto json = nlohmann::json();
-        //     json["Username"] = m_Username;
-        //     json["PasswordHash"] = SHA256(password);
-        //
-        //     auto request = Message::MakeLoginRequest(json.dump());
-        //     m_Connection->SendMessage(request);
-        //
-        //     SleepUntil([this] { return !m_AuthComplete; }, 10000);
-        // }
-        //
-        // while (m_Connection->IsOpen())
-        // {
-        //     const auto input = InputString("", 1, MAX_TEXT_MESSAGE_LENGTH, "");
-        //     m_Connection->SendMessage(Message::MakeText(input));
-        // }
-        //
-        // std::println("Connection to the server has been lost!");
     }
 
     void Client::OnReceiveMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message)
@@ -143,28 +108,39 @@ namespace IMChat::Client
         switch (message->Header.Type)
         {
         case MessageType::LoginResponse:
-            ProcessLoginResponse(connection, message);
-            break;
+            {
+                const auto json = ParseJson(message->Body, message->Body.size());
+                ProcessLoginResponse(json);
+                break;
+            }
         case MessageType::ChatHistoryUpdate:
-            ProcessHistoryUpdate(connection, message);
-            break;
+            {
+                const auto json = ParseJson(message->Body, message->Body.size());
+                ProcessHistoryUpdate(json);
+                break;
+            }
+        case MessageType::UsersListUpdate:
+            {
+                const auto json = ParseJson(message->Body, message->Body.size());
+                ProcessUsersListUpdate(json);
+                break;
+            }
         default:
             std::println("Received invalid message");
         }
     }
 
-    void Client::ProcessLoginResponse(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message)
+    void Client::ProcessLoginResponse(const nlohmann::json& json)
     {
         if (m_LoggedIn)
             return;
-
-        const auto json = ParseJson(message->Body, message->Header.Size);
 
         const auto response = json["Response"].get<std::string>();
         const auto reason = json["Reason"].get<std::string>();
 
         if (response == "Approved")
         {
+            m_ConnectedUsers.push_front(std::format("{} (You)", m_Username));
             std::println("Logged in successfully! Type you messages below!");
             m_LoggedIn = true;
         }
@@ -177,10 +153,8 @@ namespace IMChat::Client
         m_AuthComplete = false;
     }
 
-    void Client::ProcessHistoryUpdate(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message)
+    void Client::ProcessHistoryUpdate(const nlohmann::json& json)
     {
-        const auto json = ParseJson(message->Body, message->Header.Size);
-
         if (!json.contains("Messages"))
             return; // Corrupted message
 
@@ -197,6 +171,28 @@ namespace IMChat::Client
                 m_MessageHistory.erase(m_MessageHistory.begin());
 
             m_MessageHistory.emplace_back(sender, timestamp, text);
+        }
+    }
+
+    void Client::ProcessUsersListUpdate(const nlohmann::json& json)
+    {
+        if (!json.contains("Username") || !json.contains("Status"))
+            return; // Corrupted message
+
+        const auto username = json["Username"].get<std::string>();
+        const auto status = json["Status"].get<std::string>();
+
+        if (status == "Connected")
+        {
+            m_ConnectedUsers.push_back(username);
+        }
+        else if (status == "Disconnected")
+        {
+            std::erase_if(m_ConnectedUsers, [&username](const std::string& itUsername) { return username == itUsername; });
+        }
+        else
+        {
+            std::println("[CLIENT] Invalid connection status for user {}", username);
         }
     }
 }

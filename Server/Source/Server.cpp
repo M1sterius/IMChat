@@ -111,12 +111,13 @@ namespace IMChat::Server
 
     void Server::OnClientDisconnect(std::shared_ptr<Connection> connection)
     {
+        SendUsersListUpdate(connection, m_Clients[connection->GetID()].Username, "Disconnected");
         const auto ID = connection->GetID();
         std::println("[SERVER] Client {} ({}) disconnected!", ID, m_Clients[connection->GetID()].Username);
         m_Clients.erase(ID);
     }
 
-    void Server::SendUpdateChatHistory(std::shared_ptr<Connection> sender, std::shared_ptr<Message> message)
+    void Server::SendChatHistoryUpdate(std::shared_ptr<Connection> sender, std::shared_ptr<Message> message)
     {
         auto json = nlohmann::json();
         json["Messages"] = nlohmann::json::array();
@@ -138,7 +139,7 @@ namespace IMChat::Server
         }
     }
 
-    void Server::SendChatHistory(std::shared_ptr<Connection> receiver, const uint32_t maxMessages)
+    void Server::SendFullChatHistory(std::shared_ptr<Connection> receiver, const uint32_t maxMessages)
     {
         auto message = nlohmann::json{
             {"Sender", ""},
@@ -171,6 +172,21 @@ namespace IMChat::Server
         }
     }
 
+    void Server::SendUsersListUpdate(std::shared_ptr<Connection> receiver, const std::string& username, const std::string& status)
+    {
+        auto json = nlohmann::json();
+        json["Username"] = username;
+        json["Status"] = status;
+
+        for (const auto& [id, client] : m_Clients)
+        {
+            if (id == receiver->GetID())
+                continue;
+
+            client.Connection->SendMessage(Message::MakeUsersListUpdate(json.dump()));
+        }
+    }
+
     void Server::ProcessTextMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message)
     {
         if (const auto& client = m_Clients[connection->GetID()]; client.LoggedIn)
@@ -186,7 +202,7 @@ namespace IMChat::Server
                 std::cout.write(message->Body.data(), message->Header.Size);
                 std::cout << '\n';
 
-                SendUpdateChatHistory(connection, message);
+                SendChatHistoryUpdate(connection, message);
             }
             catch (const std::exception& e)
             {
@@ -236,7 +252,8 @@ namespace IMChat::Server
                 m_Clients[connectionId].DatabaseID = qID;
 
                 std::println("[SERVER] User '{}' logged in successfully", username);
-                SendChatHistory(connection, 100);
+                SendFullChatHistory(connection, 100);
+                SendUsersListUpdate(connection, username, "Connected");
             }
             else
             {

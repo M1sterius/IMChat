@@ -36,12 +36,13 @@ namespace IMChat::Server
         uint32_t m_IDs;
         bool m_StartupOK;
 
-        void SendUpdateChatHistory(std::shared_ptr<Connection> sender, std::shared_ptr<Message> message);
-        void SendChatHistory(std::shared_ptr<Connection> receiver, const uint32_t maxMessages);
-
         void WaitForClientConnection();
         void OnReceiveMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
         void OnClientDisconnect(std::shared_ptr<Connection> connection);
+
+        void SendChatHistoryUpdate(std::shared_ptr<Connection> sender, std::shared_ptr<Message> message);
+        void SendFullChatHistory(std::shared_ptr<Connection> receiver, const uint32_t maxMessages);
+        void SendUsersListUpdate(std::shared_ptr<Connection> receiver, const std::string& username, const std::string& status);
 
         void ProcessTextMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
         void ProcessLoginRequest(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);

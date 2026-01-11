@@ -6,6 +6,7 @@
 
 #define ASIO_STANDALONE
 #include "asio.hpp"
+#include "nlohmann_json/json_fwd.hpp"
 
 #include <thread>
 
@@ -30,13 +31,15 @@ namespace IMChat::Client
         std::shared_ptr<Connection> m_Connection;
         std::string m_Username;
         std::list<TextMessage> m_MessageHistory;
+        std::list<std::string> m_ConnectedUsers;
         bool m_LoggedIn; // true if client is fully logged in and able to send messages
         bool m_AuthComplete; // true when login request is sent to the server and client should await the response
         bool m_LoginFailed; // true if user provided wrong username or password
 
         void OnReceiveMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
 
-        void ProcessLoginResponse(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
-        void ProcessHistoryUpdate(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
+        void ProcessLoginResponse(const nlohmann::json& json);
+        void ProcessHistoryUpdate(const nlohmann::json& json);
+        void ProcessUsersListUpdate(const nlohmann::json& json);
     };
 }

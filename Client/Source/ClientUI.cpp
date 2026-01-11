@@ -76,10 +76,10 @@ namespace IMChat::Client
         ImGui::CreateContext();
         ImGui::StyleColorsDark();
 
+        // TODO: Support other character ranges
         auto& io = ImGui::GetIO();
         io.Fonts->AddFontFromFileTTF("Assets/Fonts/JetBrainsMono-Regular.ttf",
             18.0f, nullptr, io.Fonts->GetGlyphRangesCyrillic());
-        // io.Fonts->Build();
 
         ImGui_ImplGlfw_InitForOpenGL(m_Window, true);
         ImGui_ImplOpenGL3_Init("#version 330");
@@ -147,7 +147,7 @@ namespace IMChat::Client
         if (ImGui::BeginPopupModal("Error", nullptr,
             ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse))
         {
-            ImGui::Text(text.c_str());
+            ImGui::Text("%s", text.c_str());
             ImGui::Spacing();
 
             if (ImGui::Button("OK"))
@@ -169,10 +169,11 @@ namespace IMChat::Client
         static char password_arr[MAX_PASSWORD_LENGTH + 1] = {0};
         bool ret = false;
 
+        const auto popUpWidth = std::max(ImGui::GetMainViewport()->Size.x * 0.28f, 300.0f);
+
         ImGui::OpenPopup("Login");
 
-        // Center the popup
-        ImGui::SetNextWindowSize(ImVec2(300, 0), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(popUpWidth, 0), ImGuiCond_Always);
         ImGui::SetNextWindowPos(
             ImGui::GetMainViewport()->GetCenter(),
             ImGuiCond_Always,
@@ -199,12 +200,14 @@ namespace IMChat::Client
 
             ImGui::Spacing();
 
+            ImGui::BeginDisabled(strlen(username_arr) < MIN_USERNAME_LENGTH || strlen(password_arr) < MIN_PASSWORD_LENGTH);
             if (ImGui::Button("Login", ImVec2(120, 0)))
             {
                 username = username_arr;
                 password = password_arr;
                 ret = true;
             }
+            ImGui::EndDisabled();
 
             ImGui::EndPopup();
         }
@@ -212,18 +215,18 @@ namespace IMChat::Client
         return ret;
     }
 
-    bool ClientUI::DrawMainChatUI(const std::list<TextMessage>& messages, std::string& input)
+    bool ClientUI::DrawMainChatUI(const std::list<TextMessage>& messages, const std::list<std::string>& connectedUsers, std::string& input)
     {
         // create *4 + 1 buffer to make sure that all possible utf8 codepoints fit
         static char input_arr[MAX_TEXT_MESSAGE_LENGTH * 4 + 1] = {0};
         static bool scrollToBottom = false;
+        bool ret = false;
 
         const auto viewport = ImGui::GetMainViewport();
         const auto viewportPos  = viewport->Pos;
         const auto viewportSize = viewport->Size;
         const auto chatWindowWidth = viewportSize.x * 0.8f;
         const auto sendButtonWidth = chatWindowWidth * 0.1f;
-        const auto inputBoxWidth = chatWindowWidth - sendButtonWidth;
         const auto inputBoxHeight = ImGui::GetTextLineHeight() * 3 + ImGui::GetStyle().ItemSpacing.y * 2;
 
         ImGui::SetNextWindowPos(viewportPos, ImGuiCond_Always);
@@ -235,8 +238,7 @@ namespace IMChat::Client
         ImGui::BeginChild(
             "History",
             ImVec2(0, -inputBoxHeight - ImGui::GetStyle().ItemSpacing.y * 2),
-            true,
-            ImGuiWindowFlags_HorizontalScrollbar
+            true
         );
 
         for (const auto& msg : messages)
@@ -259,39 +261,51 @@ namespace IMChat::Client
         ImGui::Separator();
 
         // Multiline input
-        ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - sendButtonWidth - ImGui::GetStyle().ItemSpacing.x);
+        // ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - sendButtonWidth - ImGui::GetStyle().ItemSpacing.x);
 
-        // ImGui::PushTextWrapPos(0.0f);
         // TODO: Text length limit
-        // TODO: Text wrapping
         bool send = ImGui::InputTextMultiline(
             "##ChatInput",
             input_arr,
             IM_ARRAYSIZE(input_arr),
-            ImVec2(-1.0f, inputBoxHeight),
-            ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_NoHorizontalScroll |
+            ImVec2(ImGui::GetContentRegionAvail().x - sendButtonWidth - ImGui::GetStyle().ItemSpacing.x, inputBoxHeight),
+            ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_NoHorizontalScroll | ImGuiInputTextFlags_WordWrap |
             ImGuiInputTextFlags_CtrlEnterForNewLine | ImGuiInputTextFlags_CallbackCharFilter, TextInputFilter
         );
-        // ImGui::PopTextWrapPos();
-        ImGui::PopItemWidth();
 
+        // ImGui::PopItemWidth();
         ImGui::SameLine();
 
         // Send button
+        ImGui::BeginDisabled(input_arr[0] == '\0');
         if (ImGui::Button("Send", ImVec2(sendButtonWidth, inputBoxHeight)))
             send = true;
+        ImGui::EndDisabled();
 
         if (send && input_arr[0] != '\0')
         {
             input = input_arr;
             input_arr[0] = '\0';
-            characterCount = 0;
             scrollToBottom = true;
+            ret = true;
             ImGui::SetKeyboardFocusHere(-1);
         }
 
         ImGui::End();
 
-        return send;
+        ImGui::SetNextWindowPos(ImVec2(chatWindowWidth, 0), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(viewportSize.x * 0.2, viewportSize.y), ImGuiCond_Always);
+        ImGui::Begin(std::format("Users - {}", connectedUsers.size()).c_str(), nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+            ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
+
+        for (const auto& user : connectedUsers)
+        {
+            ImGui::Text("%s", user.c_str());
+            ImGui::Spacing();
+        }
+
+        ImGui::End();
+
+        return ret;
     }
 }

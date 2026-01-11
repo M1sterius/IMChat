@@ -14,7 +14,8 @@ namespace IMChat
         LoginResponse,
 
         TextMessage,
-        ChatHistoryUpdate
+        ChatHistoryUpdate,
+        UsersListUpdate
     };
 
     struct MessageHeader
@@ -68,6 +69,17 @@ namespace IMChat
             message.Header.Type = MessageType::ChatHistoryUpdate;
             message.Header.Size = static_cast<uint32_t>(updateJson.size());
             message.Body = std::vector(updateJson.begin(), updateJson.end());
+
+            return message;
+        }
+
+        static Message MakeUsersListUpdate(const std::string& json)
+        {
+            auto message = Message();
+
+            message.Header.Type = MessageType::UsersListUpdate;
+            message.Header.Size = static_cast<uint32_t>(json.size());
+            message.Body = std::vector(json.begin(), json.end());
 
             return message;
         }
