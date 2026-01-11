@@ -16,6 +16,8 @@ namespace IMChat::Client
 {
     class Client
     {
+    private:
+        static constexpr auto MAX_MESSAGE_HISTORY_LENGTH = 100u;
     public:
         Client(const char* ip, const uint16_t port);
         ~Client();

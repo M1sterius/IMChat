@@ -89,7 +89,16 @@ namespace IMChat::Client
             }
             else // Main chat UI
             {
+                static std::string input;
+                if (m_UI->DrawMainChatUI(m_MessageHistory, input))
+                {
+                    m_Connection->SendMessage(Message::MakeText(input));
 
+                    if (m_MessageHistory.size() >= MAX_MESSAGE_HISTORY_LENGTH)
+                        m_MessageHistory.erase(m_MessageHistory.begin());
+
+                    m_MessageHistory.emplace_back("You", "", input);
+                }
             }
 
             m_UI->EndFrame();
@@ -184,7 +193,10 @@ namespace IMChat::Client
             const auto timestamp = textMessage["Timestamp"].get<std::string>();
             const auto text = textMessage["Text"].get<std::string>();
 
-            std::print("{}: {}\n", sender, text);
+            if (m_MessageHistory.size() >= MAX_MESSAGE_HISTORY_LENGTH)
+                m_MessageHistory.erase(m_MessageHistory.begin());
+
+            m_MessageHistory.emplace_back(sender, timestamp, text);
         }
     }
 }

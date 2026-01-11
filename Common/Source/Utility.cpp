@@ -106,4 +106,18 @@ namespace IMChat
         oss << std::put_time(&tm, "%H:%M");
         return oss.str();
     }
+
+    size_t Utf8Strlen(const char* str)
+    {
+        size_t count = 0;
+
+        while (*str != 0)
+        {
+            if ((*str & 0xc0) != 0x80)
+                count++;
+            str++;
+        }
+
+        return count;
+    }
 }

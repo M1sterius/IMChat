@@ -12,4 +12,5 @@ namespace IMChat
     std::string GetEnv(const char* name);
     void SleepUntil(const std::function<bool()>& predicate, const uint32_t timeoutMs);
     std::string GetTimeHhMm();
+    size_t Utf8Strlen(const char* str);
 }

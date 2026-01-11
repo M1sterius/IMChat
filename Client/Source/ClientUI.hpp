@@ -1,6 +1,7 @@
 #pragma once
 
 #include "TextMessage.hpp"
+#include "Common.hpp"
 
 #include <string>
 #include <list>

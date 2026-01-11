@@ -31,3 +31,9 @@ target_include_directories(Client PRIVATE
 add_subdirectory(${DEPENDENCIES_DIR}/glfw ${CMAKE_CURRENT_BINARY_DIR}/glfw)
 
 target_link_libraries(Client PRIVATE Common glfw)
+
+add_custom_command(TARGET Client POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_CURRENT_SOURCE_DIR}/Assets/
+    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Assets/
+)
