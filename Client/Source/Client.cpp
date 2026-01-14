@@ -3,6 +3,7 @@
 #include "nlohmann_json/json.hpp"
 
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
 #include "windows.h"
 #endif
 
@@ -88,14 +89,14 @@ namespace IMChat::Client
             else // Main chat UI
             {
                 static std::string input;
-                if (m_UI->DrawMainChatUI(m_MessageHistory, m_ConnectedUsers, input))
+                if (m_UI->DrawMainChatUI(m_ChatHistory, m_ConnectedUsers, input))
                 {
                     m_Connection->SendMessage(Message::MakeText(input));
 
-                    if (m_MessageHistory.size() >= MAX_MESSAGE_HISTORY_LENGTH)
-                        m_MessageHistory.erase(m_MessageHistory.begin());
+                    if (m_ChatHistory.size() >= MAX_CHAT_HISTORY_LENGTH)
+                        m_ChatHistory.erase(m_ChatHistory.begin());
 
-                    m_MessageHistory.emplace_back("You", "", input);
+                    m_ChatHistory.emplace_back("You", "", input);
                 }
             }
 
@@ -116,7 +117,7 @@ namespace IMChat::Client
         case MessageType::ChatHistoryUpdate:
             {
                 const auto json = ParseJson(message->Body, message->Body.size());
-                ProcessHistoryUpdate(json);
+                ProcessChatHistoryUpdate(json);
                 break;
             }
         case MessageType::UsersListUpdate:
@@ -135,14 +136,18 @@ namespace IMChat::Client
         if (m_LoggedIn)
             return;
 
+        if (!json.contains("Response") || !json.contains("Reason"))
+            return; // Corrupted response
+
         const auto response = json["Response"].get<std::string>();
         const auto reason = json["Reason"].get<std::string>();
 
         if (response == "Approved")
         {
             m_ConnectedUsers.push_front(std::format("{} (You)", m_Username));
-            std::println("Logged in successfully! Type you messages below!");
             m_LoggedIn = true;
+
+            ProcessLoginResponseInfo(json);
         }
         else
         {
@@ -153,11 +158,12 @@ namespace IMChat::Client
         m_AuthComplete = false;
     }
 
-    void Client::ProcessHistoryUpdate(const nlohmann::json& json)
+    void Client::ProcessLoginResponseInfo(const nlohmann::json& json)
     {
-        if (!json.contains("Messages"))
-            return; // Corrupted message
+        if (!json.contains("Messages") | !json.contains("Users"))
+            return; // Corrupted response
 
+        // Chat history
         for (const auto& textMessage : json["Messages"].get<nlohmann::json::array_t>())
         {
             if (!textMessage.contains("Sender") || !textMessage.contains("Timestamp") || !textMessage.contains("Text"))
@@ -167,11 +173,34 @@ namespace IMChat::Client
             const auto timestamp = textMessage["Timestamp"].get<std::string>();
             const auto text = textMessage["Text"].get<std::string>();
 
-            if (m_MessageHistory.size() >= MAX_MESSAGE_HISTORY_LENGTH)
-                m_MessageHistory.erase(m_MessageHistory.begin());
+            if (m_ChatHistory.size() >= MAX_CHAT_HISTORY_LENGTH)
+                m_ChatHistory.erase(m_ChatHistory.begin());
 
-            m_MessageHistory.emplace_back(sender, timestamp, text);
+            m_ChatHistory.emplace_back(sender == m_Username ? "You" : sender, timestamp, text);
         }
+
+        // Connected users list
+        for (const auto& username : json["Users"].get<nlohmann::json::array_t>())
+        {
+            // Prevents usernames from being duplicated in the list when multiple clients login under the same credentials
+            if (username != m_Username)
+                m_ConnectedUsers.push_back(username);
+        }
+    }
+
+    void Client::ProcessChatHistoryUpdate(const nlohmann::json& json)
+    {
+        if (!json.contains("Sender") || !json.contains("Timestamp") || !json.contains("Text"))
+            return; // Corrupted message
+
+        const auto sender = json["Sender"].get<std::string>();
+        const auto timestamp = json["Timestamp"].get<std::string>();
+        const auto text = json["Text"].get<std::string>();
+
+        if (m_ChatHistory.size() >= MAX_CHAT_HISTORY_LENGTH)
+            m_ChatHistory.erase(m_ChatHistory.begin());
+
+        m_ChatHistory.emplace_back(sender == m_Username ? "You" : sender, timestamp, text);
     }
 
     void Client::ProcessUsersListUpdate(const nlohmann::json& json)
@@ -184,11 +213,14 @@ namespace IMChat::Client
 
         if (status == "Connected")
         {
-            m_ConnectedUsers.push_back(username);
+            // Prevents usernames from being duplicated in the list when multiple clients login under the same credentials
+            if (username != m_Username)
+                m_ConnectedUsers.push_back(username);
         }
         else if (status == "Disconnected")
         {
-            std::erase_if(m_ConnectedUsers, [&username](const std::string& itUsername) { return username == itUsername; });
+            if (username != m_Username)
+                std::erase_if(m_ConnectedUsers, [&username](const std::string& itUsername) { return username == itUsername; });
         }
         else
         {

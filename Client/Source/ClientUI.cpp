@@ -79,7 +79,7 @@ namespace IMChat::Client
         // TODO: Support other character ranges
         auto& io = ImGui::GetIO();
         io.Fonts->AddFontFromFileTTF("Assets/Fonts/JetBrainsMono-Regular.ttf",
-            18.0f, nullptr, io.Fonts->GetGlyphRangesCyrillic());
+            17.0f, nullptr, io.Fonts->GetGlyphRangesCyrillic());
 
         ImGui_ImplGlfw_InitForOpenGL(m_Window, true);
         ImGui_ImplOpenGL3_Init("#version 330");

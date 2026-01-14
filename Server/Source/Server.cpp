@@ -1,10 +1,11 @@
 #include "Server.hpp"
 
+#include "nlohmann_json/json.hpp"
+
 #include <iostream>
 #include <format>
 #include <print>
-
-#include "nlohmann_json/json.hpp"
+#include <unordered_set>
 
 namespace IMChat::Server
 {
@@ -119,61 +120,29 @@ namespace IMChat::Server
 
     void Server::SendChatHistoryUpdate(std::shared_ptr<Connection> sender, std::shared_ptr<Message> message)
     {
-        auto json = nlohmann::json();
-        json["Messages"] = nlohmann::json::array();
+        // TODO: Only send info about 1 new message to all users except the message author
 
-        json["Messages"].push_back({
+        const auto json = nlohmann::json{
             {"Sender", m_Clients[sender->GetID()].Username},
             {"Timestamp", "TODO"},
             {"Text", std::string(message->Body.begin(), message->Body.end())}
-        });
+        };
 
-        const auto updateMessage = Message::MakeHistoryUpdate(json.dump());
+        const auto update = Message::MakeHistoryUpdate(json.dump());
 
         for (const auto& [id, client] : m_Clients)
         {
             if (id == sender->GetID())
                 continue;
 
-            client.Connection->SendMessage(updateMessage);
-        }
-    }
-
-    void Server::SendFullChatHistory(std::shared_ptr<Connection> receiver, const uint32_t maxMessages)
-    {
-        auto message = nlohmann::json{
-            {"Sender", ""},
-            {"Timestamp", ""},
-            {"Text", ""},
-        };
-
-        auto json = nlohmann::json();
-        json["Messages"] = nlohmann::json::array();
-
-        try
-        {
-            pqxx::work tx{*m_dbConnection};
-            for (auto [username, text, timestamp] : tx.stream<std::string, std::string, std::string>(
-                "SELECT users.username, messages.message, messages.timestamp FROM messages JOIN users ON messages.user_id = users.id ORDER BY timestamp ASC LIMIT " + std::to_string(maxMessages)))
-            {
-                message["Sender"] = username;
-                message["Timestamp"] = timestamp;
-                message["Text"] = text;
-
-                json["Messages"].push_back(message);
-            }
-            tx.commit();
-
-            receiver->SendMessage(Message::MakeHistoryUpdate(json.dump()));
-        }
-        catch (const std::exception& e)
-        {
-            std::println("[SERVER] Failed to query chat history for user {}. Error: {}.", receiver->GetID(), e.what());
+            client.Connection->SendMessage(update);
         }
     }
 
     void Server::SendUsersListUpdate(std::shared_ptr<Connection> receiver, const std::string& username, const std::string& status)
     {
+        // TODO: Only send info about 1 connected/disconnected user to all other users
+
         auto json = nlohmann::json();
         json["Username"] = username;
         json["Status"] = status;
@@ -187,26 +156,72 @@ namespace IMChat::Server
         }
     }
 
+    void Server::PopulateLoginResponseInfo(nlohmann::json& json, const uint32_t connectionId)
+    {
+        json["Messages"] = nlohmann::json::array();
+        json["Users"] = nlohmann::json::array();
+
+        // Chat history
+        try
+        {
+            pqxx::work tx{*m_dbConnection};
+            for (auto [username, text, timestamp] : tx.stream<std::string, std::string, std::string>(
+                "SELECT users.username, messages.message, messages.timestamp FROM messages JOIN users ON messages.user_id = users.id ORDER BY timestamp ASC LIMIT " + std::to_string(MAX_CHAT_HISTORY_SEND_LENGTH)))
+            {
+                json["Messages"].push_back({
+                    {"Sender", username},
+                    {"Timestamp", timestamp},
+                    {"Text", text},
+                });
+            }
+            tx.commit();
+        }
+        catch (const std::exception& e)
+        {
+            std::println("[SERVER] Failed to query chat history. Error: {}.", e.what());
+        }
+
+        // Connected users list
+        std::unordered_set<std::string> usernamesSet;
+        for (const auto& [id, client] : m_Clients)
+        {
+            if (id == connectionId)
+                continue;
+
+            // This prevents the same username from being added multiple times when more than 1 client is logged under
+            // the same credentials
+            if (!usernamesSet.contains(client.Username))
+            {
+                json["Users"].push_back(client.Username);
+                usernamesSet.insert(client.Username);
+            }
+        }
+    }
+
     void Server::ProcessTextMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message)
     {
         if (const auto& client = m_Clients[connection->GetID()]; client.LoggedIn)
         {
+            const auto text = std::string_view(message->Body.begin(), message->Body.end());
+
+            if (const auto textLength = text.length(); textLength > MAX_TEXT_MESSAGE_LENGTH)
+            {
+                std::println("[SERVER] Text message received from user '{}' is too long ({} > {})", client.Username, textLength, MAX_TEXT_MESSAGE_LENGTH);
+                return;
+            }
+
             try
             {
                 pqxx::work tx{*m_dbConnection};
                 tx.exec_params("INSERT INTO messages (user_id, message, timestamp) VALUES ($1, $2, NOW())",
-                    client.DatabaseID, std::string_view(message->Body.begin(), message->Body.end()));
+                    client.DatabaseID, text);
                 tx.commit();
-
-                std::print("{}: ", client.Username);
-                std::cout.write(message->Body.data(), message->Header.Size);
-                std::cout << '\n';
 
                 SendChatHistoryUpdate(connection, message);
             }
             catch (const std::exception& e)
             {
-                std::println("[SERVER] Failed to add incoming message to db. Error: {}.", e.what());
+                std::println("[SERVER] Failed to add incoming text message to db. Error: {}.", e.what());
             }
         }
         else
@@ -243,7 +258,7 @@ namespace IMChat::Server
             const auto [qID, qPasswordHash] = tx.query1<uint64_t, std::string>("SELECT id, password_hash FROM users WHERE username=$1", username);
             tx.commit();
 
-            if (qPasswordHash == passwordHash)
+            if (passwordHash == qPasswordHash)
             {
                 response["Response"] = "Approved";
                 response["Reason"] = "";
@@ -252,7 +267,7 @@ namespace IMChat::Server
                 m_Clients[connectionId].DatabaseID = qID;
 
                 std::println("[SERVER] User '{}' logged in successfully", username);
-                SendFullChatHistory(connection, 100);
+                PopulateLoginResponseInfo(response, connectionId);
                 SendUsersListUpdate(connection, username, "Connected");
             }
             else

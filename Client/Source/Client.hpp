@@ -18,7 +18,7 @@ namespace IMChat::Client
     class Client
     {
     private:
-        static constexpr auto MAX_MESSAGE_HISTORY_LENGTH = 100u;
+        static constexpr auto MAX_CHAT_HISTORY_LENGTH = 100u;
     public:
         Client(const char* ip, const uint16_t port);
         ~Client();
@@ -30,7 +30,7 @@ namespace IMChat::Client
         std::thread m_Worker;
         std::shared_ptr<Connection> m_Connection;
         std::string m_Username;
-        std::list<TextMessage> m_MessageHistory;
+        std::list<TextMessage> m_ChatHistory;
         std::list<std::string> m_ConnectedUsers;
         bool m_LoggedIn; // true if client is fully logged in and able to send messages
         bool m_AuthComplete; // true when login request is sent to the server and client should await the response
@@ -39,7 +39,9 @@ namespace IMChat::Client
         void OnReceiveMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
 
         void ProcessLoginResponse(const nlohmann::json& json);
-        void ProcessHistoryUpdate(const nlohmann::json& json);
+        void ProcessLoginResponseInfo(const nlohmann::json& json);
+
+        void ProcessChatHistoryUpdate(const nlohmann::json& json);
         void ProcessUsersListUpdate(const nlohmann::json& json);
     };
 }

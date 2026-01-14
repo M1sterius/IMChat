@@ -5,6 +5,7 @@
 #define ASIO_STANDALONE
 #include "asio.hpp"
 #include "pqxx/pqxx"
+#include "nlohmann_json/json_fwd.hpp"
 
 #include <thread>
 #include <memory>
@@ -23,6 +24,8 @@ namespace IMChat::Server
             uint64_t DatabaseID;
         };
     public:
+        static constexpr uint32_t MAX_CHAT_HISTORY_SEND_LENGTH = 100;
+
         explicit Server(const uint16_t port);
         ~Server();
 
@@ -40,8 +43,8 @@ namespace IMChat::Server
         void OnReceiveMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
         void OnClientDisconnect(std::shared_ptr<Connection> connection);
 
+        void PopulateLoginResponseInfo(nlohmann::json& json, const uint32_t connectionId);
         void SendChatHistoryUpdate(std::shared_ptr<Connection> sender, std::shared_ptr<Message> message);
-        void SendFullChatHistory(std::shared_ptr<Connection> receiver, const uint32_t maxMessages);
         void SendUsersListUpdate(std::shared_ptr<Connection> receiver, const std::string& username, const std::string& status);
 
         void ProcessTextMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
