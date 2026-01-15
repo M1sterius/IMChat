@@ -43,11 +43,11 @@ namespace IMChat::Server
         void OnReceiveMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
         void OnClientDisconnect(std::shared_ptr<Connection> connection);
 
-        void PopulateLoginResponseInfo(nlohmann::json& json, const uint32_t connectionId);
-        void SendChatHistoryUpdate(std::shared_ptr<Connection> sender, std::shared_ptr<Message> message);
-        void SendUsersListUpdate(std::shared_ptr<Connection> receiver, const std::string& username, const std::string& status);
-
         void ProcessTextMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
         void ProcessLoginRequest(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
+
+        void PopulateLoginResponseInfo(nlohmann::json& json, const uint32_t connectionId);
+        void SendChatHistoryUpdate(const uint32_t messageAuthorConnectionId, const std::string& message);
+        void SendUsersListUpdate(const uint32_t userConnectionId, const std::string& username, const std::string& status);
     };
 }

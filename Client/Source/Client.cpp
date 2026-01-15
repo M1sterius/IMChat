@@ -73,7 +73,7 @@ namespace IMChat::Client
             else if (!m_LoggedIn) // Login window
             {
                 static std::string password;
-                if (m_UI->DrawLoginPopUp(m_Username, password, m_LoginFailed))
+                if (m_UI->DrawLoginPopUp(m_Username, password, m_LoginFailed, m_LoginFailureReason))
                 {
                     m_AuthComplete = true;
                     m_LoginFailed = false;
@@ -151,7 +151,7 @@ namespace IMChat::Client
         }
         else
         {
-            std::println("Login denied. {}", reason);
+            m_LoginFailureReason = reason;
             m_LoginFailed = true;
         }
 

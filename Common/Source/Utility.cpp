@@ -120,4 +120,69 @@ namespace IMChat
 
         return count;
     }
+
+    std::string TimestampZ()
+    {
+        const auto now = std::chrono::system_clock::now();
+        auto time_t_now = std::chrono::system_clock::to_time_t(now);
+        const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now.time_since_epoch()) % 1000;
+
+        std::tm tm_utc;
+        #ifdef _WIN32
+        gmtime_s(&tm_utc, &time_t_now);
+        #else
+        gmtime_r(&time_t_now, &tm_utc);
+        #endif
+
+        std::ostringstream oss;
+        oss << std::put_time(&tm_utc, "%Y-%m-%d %H:%M:%S");
+        oss << '.' << std::setfill('0') << std::setw(3) << ms.count();
+        oss << "+00";
+
+        return oss.str();
+    }
+
+    ParsedTimestamp ParseTimestamp(const std::string& timestampz)
+    {
+        ParsedTimestamp result;
+
+        std::tm tm_utc = {};
+        std::istringstream iss(timestampz);
+
+        char delimiter;
+        iss >> tm_utc.tm_year >> delimiter >> tm_utc.tm_mon >> delimiter >> tm_utc.tm_mday;
+        iss >> tm_utc.tm_hour >> delimiter >> tm_utc.tm_min >> delimiter >> tm_utc.tm_sec;
+
+        tm_utc.tm_year -= 1900;
+        tm_utc.tm_mon -= 1;
+        tm_utc.tm_isdst = -1;
+
+        // Convert to local time
+        tm tm_local;
+        time_t time_utc;
+        #ifdef _WIN32
+        time_utc = _mkgmtime(&tm_utc);
+        localtime_s(&tm_local, &time_utc);
+        #else
+        time_utc = timegm(&tm_utc);
+        localtime_r(&time_utc, &tm_local);
+        #endif
+
+        // Format local time as hh:mm
+        std::ostringstream time_oss;
+        time_oss << std::setfill('0') << std::setw(2) << tm_local.tm_hour
+                 << ':' << std::setfill('0') << std::setw(2) << tm_local.tm_min;
+        result.TimeHhMm = time_oss.str();
+
+        const char* months[] = {"January", "February", "March", "April", "May", "June",
+                               "July", "August", "September", "October", "November", "December"};
+        std::ostringstream day_month_oss;
+        day_month_oss << tm_local.tm_mday << ' ' << months[tm_local.tm_mon];
+        result.DayMonth = day_month_oss.str();
+
+        result.DayOfYear = tm_local.tm_yday + 1;
+
+        return result;
+    }
 }

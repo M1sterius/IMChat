@@ -12,6 +12,24 @@
 
 namespace IMChat::Client
 {
+    static ImVector<ImWchar> BuildFontRanges(const ImGuiIO& io)
+    {
+        // Symbol support depends on both imgui and the font. JetBrains Mono does not support Chinese, Korean and Japanese
+        ImFontGlyphRangesBuilder builder;
+
+        builder.AddRanges(io.Fonts->GetGlyphRangesDefault());
+        builder.AddRanges(io.Fonts->GetGlyphRangesCyrillic());
+        builder.AddRanges(io.Fonts->GetGlyphRangesGreek());
+        builder.AddRanges(io.Fonts->GetGlyphRangesKorean());
+        builder.AddRanges(io.Fonts->GetGlyphRangesJapanese());
+        builder.AddRanges(io.Fonts->GetGlyphRangesChineseFull());
+
+        ImVector<ImWchar> ranges;
+        builder.BuildRanges(&ranges);
+
+        return ranges;
+    }
+
     static int UsernameInputFilter(ImGuiInputTextCallbackData* data)
     {
         static std::unordered_set<char> allowedCharacters;
@@ -44,11 +62,30 @@ namespace IMChat::Client
         return 1;
     }
 
-    // TODO: Text wrapping
     static int TextInputFilter(ImGuiInputTextCallbackData* data)
     {
-        // if (++characterCount > MAX_TEXT_MESSAGE_LENGTH)
-        //     return 1;
+        // NOTE: We CANNOT use CallbackCharFilter because it has data->Buf always set to a nullptr.
+
+        const auto buf = data->Buf;
+
+        // This is kinda cursed and demands a better approach but... it works
+        while (Utf8Strlen(buf) > MAX_TEXT_MESSAGE_LENGTH)
+        {
+            auto bufEnd = buf + data->BufTextLen - 1;
+            int lastSymbolByteLength = 1;
+
+            if ((*bufEnd & 0x80) == 0) { }
+            else
+            {
+                while ((*bufEnd & 0xC0) == 0x80)
+                {
+                    lastSymbolByteLength++;
+                    bufEnd--;
+                }
+            }
+
+            data->DeleteChars(data->BufTextLen - lastSymbolByteLength, lastSymbolByteLength);
+        }
 
         return 0;
     }
@@ -75,11 +112,11 @@ namespace IMChat::Client
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGui::StyleColorsDark();
-
-        // TODO: Support other character ranges
         auto& io = ImGui::GetIO();
+
+        const auto ranges = BuildFontRanges(io);
         io.Fonts->AddFontFromFileTTF("Assets/Fonts/JetBrainsMono-Regular.ttf",
-            17.0f, nullptr, io.Fonts->GetGlyphRangesCyrillic());
+            17.0f, nullptr, ranges.Data);
 
         ImGui_ImplGlfw_InitForOpenGL(m_Window, true);
         ImGui_ImplOpenGL3_Init("#version 330");
@@ -162,7 +199,7 @@ namespace IMChat::Client
         return ret;
     }
 
-    bool ClientUI::DrawLoginPopUp(std::string& username, std::string& password, const bool loginFailed)
+    bool ClientUI::DrawLoginPopUp(std::string& username, std::string& password, const bool loginFailed, const std::string& failureReason)
     {
         // no *4 because username and password use only ASCII characters
         static char username_arr[MAX_USERNAME_LENGTH + 1] = {0};
@@ -196,7 +233,7 @@ namespace IMChat::Client
                 ImGuiInputTextFlags_Password | ImGuiInputTextFlags_CallbackCharFilter, PasswordInputFilter);
 
             if (loginFailed)
-                ImGui::TextColored(ImVec4(1,0,0,1), "Invalid username or password");
+                ImGui::TextColored(ImVec4(1,0,0,1), "Login failed. %s", failureReason.c_str());
 
             ImGui::Spacing();
 
@@ -219,7 +256,7 @@ namespace IMChat::Client
     {
         // create *4 + 1 buffer to make sure that all possible utf8 codepoints fit
         static char input_arr[MAX_TEXT_MESSAGE_LENGTH * 4 + 1] = {0};
-        static bool scrollToBottom = false;
+        static bool scrollToBottom = true;
         bool ret = false;
 
         const auto viewport = ImGui::GetMainViewport();
@@ -244,8 +281,9 @@ namespace IMChat::Client
         for (const auto& msg : messages)
         {
             // TODO: Timestamp
-            ImGui::TextWrapped("%s: %s",
+            ImGui::TextWrapped("%s (%s): %s",
                 msg.Sender.c_str(),
+                "14:10",
                 msg.Text.c_str());
             ImGui::Spacing();
         }
@@ -261,19 +299,15 @@ namespace IMChat::Client
         ImGui::Separator();
 
         // Multiline input
-        // ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - sendButtonWidth - ImGui::GetStyle().ItemSpacing.x);
-
-        // TODO: Text length limit
         bool send = ImGui::InputTextMultiline(
             "##ChatInput",
             input_arr,
             IM_ARRAYSIZE(input_arr),
             ImVec2(ImGui::GetContentRegionAvail().x - sendButtonWidth - ImGui::GetStyle().ItemSpacing.x, inputBoxHeight),
             ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_NoHorizontalScroll | ImGuiInputTextFlags_WordWrap |
-            ImGuiInputTextFlags_CtrlEnterForNewLine | ImGuiInputTextFlags_CallbackCharFilter, TextInputFilter
+            ImGuiInputTextFlags_CtrlEnterForNewLine | ImGuiInputTextFlags_CallbackEdit, TextInputFilter
         );
 
-        // ImGui::PopItemWidth();
         ImGui::SameLine();
 
         // Send button

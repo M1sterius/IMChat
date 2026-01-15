@@ -32,6 +32,7 @@ namespace IMChat::Client
         std::string m_Username;
         std::list<TextMessage> m_ChatHistory;
         std::list<std::string> m_ConnectedUsers;
+        std::string m_LoginFailureReason;
         bool m_LoggedIn; // true if client is fully logged in and able to send messages
         bool m_AuthComplete; // true when login request is sent to the server and client should await the response
         bool m_LoginFailed; // true if user provided wrong username or password

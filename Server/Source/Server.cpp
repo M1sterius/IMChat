@@ -112,36 +112,38 @@ namespace IMChat::Server
 
     void Server::OnClientDisconnect(std::shared_ptr<Connection> connection)
     {
-        SendUsersListUpdate(connection, m_Clients[connection->GetID()].Username, "Disconnected");
-        const auto ID = connection->GetID();
-        std::println("[SERVER] Client {} ({}) disconnected!", ID, m_Clients[connection->GetID()].Username);
-        m_Clients.erase(ID);
+        const auto connectionId = connection->GetID();
+        const auto& username = m_Clients[connectionId].Username;
+
+        SendUsersListUpdate(connectionId, username, "Disconnected");
+        std::println("[SERVER] Client {} ({}) disconnected!", connectionId, username);
+        m_Clients.erase(connectionId);
     }
 
-    void Server::SendChatHistoryUpdate(std::shared_ptr<Connection> sender, std::shared_ptr<Message> message)
+    void Server::SendChatHistoryUpdate(const uint32_t messageAuthorConnectionId, const std::string& message)
     {
-        // TODO: Only send info about 1 new message to all users except the message author
+        // Send info about a new text message to all users except the message author
 
         const auto json = nlohmann::json{
-            {"Sender", m_Clients[sender->GetID()].Username},
+            {"Sender", m_Clients[messageAuthorConnectionId].Username},
             {"Timestamp", "TODO"},
-            {"Text", std::string(message->Body.begin(), message->Body.end())}
+            {"Text", message}
         };
 
         const auto update = Message::MakeHistoryUpdate(json.dump());
 
         for (const auto& [id, client] : m_Clients)
         {
-            if (id == sender->GetID())
+            if (id == messageAuthorConnectionId)
                 continue;
 
             client.Connection->SendMessage(update);
         }
     }
 
-    void Server::SendUsersListUpdate(std::shared_ptr<Connection> receiver, const std::string& username, const std::string& status)
+    void Server::SendUsersListUpdate(const uint32_t userConnectionId, const std::string& username, const std::string& status)
     {
-        // TODO: Only send info about 1 connected/disconnected user to all other users
+        // Send info about connected/disconnected status of a user to all other users
 
         auto json = nlohmann::json();
         json["Username"] = username;
@@ -149,7 +151,7 @@ namespace IMChat::Server
 
         for (const auto& [id, client] : m_Clients)
         {
-            if (id == receiver->GetID())
+            if (id == userConnectionId)
                 continue;
 
             client.Connection->SendMessage(Message::MakeUsersListUpdate(json.dump()));
@@ -202,7 +204,7 @@ namespace IMChat::Server
     {
         if (const auto& client = m_Clients[connection->GetID()]; client.LoggedIn)
         {
-            const auto text = std::string_view(message->Body.begin(), message->Body.end());
+            const auto text = std::string(message->Body.begin(), message->Body.end());
 
             if (const auto textLength = text.length(); textLength > MAX_TEXT_MESSAGE_LENGTH)
             {
@@ -217,7 +219,7 @@ namespace IMChat::Server
                     client.DatabaseID, text);
                 tx.commit();
 
-                SendChatHistoryUpdate(connection, message);
+                SendChatHistoryUpdate(connection->GetID(), text);
             }
             catch (const std::exception& e)
             {
@@ -268,7 +270,7 @@ namespace IMChat::Server
 
                 std::println("[SERVER] User '{}' logged in successfully", username);
                 PopulateLoginResponseInfo(response, connectionId);
-                SendUsersListUpdate(connection, username, "Connected");
+                SendUsersListUpdate(connection->GetID(), username, "Connected");
             }
             else
             {
