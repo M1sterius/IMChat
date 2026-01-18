@@ -1,6 +1,7 @@
 #include "Server.hpp"
 
 #include "nlohmann_json/json.hpp"
+#include "fmt/format.h"
 
 #include <iostream>
 #include <format>
@@ -22,24 +23,24 @@ namespace IMChat::Server
 
             if (user.empty() || dbname.empty() || password.empty())
             {
-                std::println("[SERVER] Failed to obtain environment variables for db connection string.");
+                fmt::println("[SERVER] Failed to obtain environment variables for db connection string.");
                 return;
             }
 
-            m_dbConnection = std::make_unique<pqxx::connection>(std::format(
+            m_dbConnection = std::make_unique<pqxx::connection>(fmt::format(
                 "user={} dbname={} password={}", user, dbname, password));
         }
         catch (const std::exception& e)
         {
-            std::println("[SERVER] Failed to connect to the db. Error: {}.", e.what());
+            fmt::println("[SERVER] Failed to connect to the db. Error: {}.", e.what());
             return;
         }
 
         WaitForClientConnection();
         m_Worker = std::thread([this] { m_Context.run(); });
 
-        std::println("[SERVER] Successfully connected to db.");
-        std::println("[SERVER] Server started.");
+        fmt::println("[SERVER] Successfully connected to db.");
+        fmt::println("[SERVER] Server started.");
         m_StartupOK = true;
     }
 
@@ -54,12 +55,12 @@ namespace IMChat::Server
     {
         if (!m_StartupOK)
         {
-            std::println("[SERVER] An error occurred during server startup. Server terminated.");
+            fmt::println("[SERVER] An error occurred during server startup. Server terminated.");
             return;
         }
 
-        std::println("[SERVER] Server running.");
-        std::println("[SERVER] Press any button to terminate the server.");
+        fmt::println("[SERVER] Server running.");
+        fmt::println("[SERVER] Press any button to terminate the server.");
         std::cin.get();
     }
 
@@ -69,7 +70,7 @@ namespace IMChat::Server
         {
             if (!ec)
             {
-                std::println("[SERVER] Client connected at {}:{}.", socket.remote_endpoint().address().to_string(), socket.remote_endpoint().port());
+                fmt::println("[SERVER] Client connected at {}:{}.", socket.remote_endpoint().address().to_string(), socket.remote_endpoint().port());
 
                 const auto newId = m_IDs++;
                 m_Clients[newId] = ClientConnection{
@@ -88,7 +89,7 @@ namespace IMChat::Server
             }
             else
             {
-                std::println("[SERVER] Failed to connect client at {}:{}.", socket.remote_endpoint().address().to_string(), socket.remote_endpoint().port());
+                fmt::println("[SERVER] Failed to connect client at {}:{}.", socket.remote_endpoint().address().to_string(), socket.remote_endpoint().port());
             }
 
             WaitForClientConnection();
@@ -106,7 +107,7 @@ namespace IMChat::Server
                 ProcessLoginRequest(connection, message);
                 break;
             default:
-                std::println("Invalid message received from client {}!", connection->GetID());
+                fmt::println("[SERVER] Invalid message received from client {}!", connection->GetID());
         }
     }
 
@@ -116,7 +117,7 @@ namespace IMChat::Server
         const auto& username = m_Clients[connectionId].Username;
 
         SendUsersListUpdate(connectionId, username, "Disconnected");
-        std::println("[SERVER] Client {} ({}) disconnected!", connectionId, username);
+        fmt::println("[SERVER] Client {} ({}) disconnected!", connectionId, username);
         m_Clients.erase(connectionId);
     }
 
@@ -130,7 +131,7 @@ namespace IMChat::Server
             {"Text", message}
         };
 
-        const auto update = Message::MakeHistoryUpdate(json.dump());
+        const auto update = Message::Make(json, MessageType::ChatHistoryUpdate);
 
         for (const auto& [id, client] : m_Clients)
         {
@@ -154,7 +155,7 @@ namespace IMChat::Server
             if (id == userConnectionId)
                 continue;
 
-            client.Connection->SendMessage(Message::MakeUsersListUpdate(json.dump()));
+            client.Connection->SendMessage(Message::Make(json, MessageType::UsersListUpdate));
         }
     }
 
@@ -166,9 +167,12 @@ namespace IMChat::Server
         // Chat history
         try
         {
+            const auto query = std::format("SELECT username, message, timestamp FROM (SELECT users.username, "
+                "messages.message, messages.timestamp FROM messages JOIN users ON messages.user_id=users.id "
+                "ORDER BY messages.timestamp DESC LIMIT {}) ORDER BY timestamp ASC", MAX_CHAT_HISTORY_SEND_LENGTH);
+
             pqxx::work tx{*m_dbConnection};
-            for (auto [username, text, timestamp] : tx.stream<std::string, std::string, std::string>(
-                "SELECT users.username, messages.message, messages.timestamp FROM messages JOIN users ON messages.user_id = users.id ORDER BY timestamp ASC LIMIT " + std::to_string(MAX_CHAT_HISTORY_SEND_LENGTH)))
+            for (auto [username, text, timestamp] : tx.stream<std::string, std::string, std::string>(query))
             {
                 json["Messages"].push_back({
                     {"Sender", username},
@@ -180,7 +184,7 @@ namespace IMChat::Server
         }
         catch (const std::exception& e)
         {
-            std::println("[SERVER] Failed to query chat history. Error: {}.", e.what());
+            fmt::println("[SERVER] Failed to query chat history. Error: {}.", e.what());
         }
 
         // Connected users list
@@ -208,7 +212,7 @@ namespace IMChat::Server
 
             if (const auto textLength = text.length(); textLength > MAX_TEXT_MESSAGE_LENGTH)
             {
-                std::println("[SERVER] Text message received from user '{}' is too long ({} > {})", client.Username, textLength, MAX_TEXT_MESSAGE_LENGTH);
+                fmt::println("[SERVER] Text message received from user '{}' is too long ({} > {})", client.Username, textLength, MAX_TEXT_MESSAGE_LENGTH);
                 return;
             }
 
@@ -223,18 +227,18 @@ namespace IMChat::Server
             }
             catch (const std::exception& e)
             {
-                std::println("[SERVER] Failed to add incoming text message to db. Error: {}.", e.what());
+                fmt::println("[SERVER] Failed to add incoming text message to db. Error: {}.", e.what());
             }
         }
         else
         {
-            std::println("[SERVER] Received a message from an unauthenticated client. Connection ID: {}", connection->GetID());
+            fmt::println("[SERVER] Received a message from an unauthenticated client. Connection ID: {}", connection->GetID());
         }
     }
 
     void Server::ProcessLoginRequest(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message)
     {
-        std::println("[SERVER] Received login request from client {}.", connection->GetID());
+        fmt::println("[SERVER] Received login request from client {}.", connection->GetID());
 
         const auto connectionId = connection->GetID();
         const auto request = ParseJson(message->Body, message->Header.Size);
@@ -242,11 +246,11 @@ namespace IMChat::Server
 
         if (!request.contains("Username") || !request.contains("PasswordHash"))
         {
-            std::println("[SERVER] Received corrupted login request from client {}.", connection->GetID());
+            fmt::println("[SERVER] Received corrupted login request from client {}.", connection->GetID());
 
             response["Response"] = "Denied";
             response["Reason"] = "Corrupted request";
-            connection->SendMessage(Message::MakeLoginResponse(response));
+            connection->SendMessage(Message::Make(response, MessageType::LoginResponse));
 
             return;
         }
@@ -268,7 +272,7 @@ namespace IMChat::Server
                 m_Clients[connectionId].Username = username;
                 m_Clients[connectionId].DatabaseID = qID;
 
-                std::println("[SERVER] User '{}' logged in successfully", username);
+                fmt::println("[SERVER] User '{}' logged in successfully", username);
                 PopulateLoginResponseInfo(response, connectionId);
                 SendUsersListUpdate(connection->GetID(), username, "Connected");
             }
@@ -276,17 +280,17 @@ namespace IMChat::Server
             {
                 response["Response"] = "Denied";
                 response["Reason"] = "Wrong password";
-                std::println("[SERVER] Client {} provided wrong password for user {}.", connectionId, username);
+                fmt::println("[SERVER] Client {} provided wrong password for user {}.", connectionId, username);
             }
         }
         catch (const std::exception& e)
         {
-            std::println("[SERVER] Failed to query data for user '{}'. Error: {}.", username, e.what());
+            fmt::println("[SERVER] Failed to query data for user '{}'. Error: {}.", username, e.what());
 
             response["Response"] = "Denied";
             response["Reason"] = "User not found";
         }
 
-        connection->SendMessage(Message::MakeLoginResponse(response.dump()));
+        connection->SendMessage(Message::Make(response, MessageType::LoginResponse));
     }
 }

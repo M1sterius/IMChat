@@ -1,6 +1,7 @@
 #include "Client.hpp"
 
 #include "nlohmann_json/json.hpp"
+#include "fmt/format.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -22,7 +23,7 @@ namespace IMChat::Client
             FreeConsole();
             #endif
         } catch (const std::exception& e) {
-            std::println("Failed to initialize client UI. Error: {}", e.what());
+            fmt::println("Failed to initialize client UI. Error: {}", e.what());
             return;
         }
 
@@ -82,7 +83,7 @@ namespace IMChat::Client
                     json["Username"] = m_Username;
                     json["PasswordHash"] = SHA256(password);
 
-                    auto request = Message::MakeLoginRequest(json.dump());
+                    auto request = Message::Make(json, MessageType::LoginRequest);
                     m_Connection->SendMessage(request);
                 }
             }
@@ -91,12 +92,14 @@ namespace IMChat::Client
                 static std::string input;
                 if (m_UI->DrawMainChatUI(m_ChatHistory, m_ConnectedUsers, input))
                 {
-                    m_Connection->SendMessage(Message::MakeText(input));
+                    m_Connection->SendMessage(Message::Make(input, MessageType::TextMessage));
 
                     if (m_ChatHistory.size() >= MAX_CHAT_HISTORY_LENGTH)
                         m_ChatHistory.erase(m_ChatHistory.begin());
 
-                    m_ChatHistory.emplace_back("You", "", input);
+                    // Timestamp won't be precisely synced with db but it`s okay.
+                    // Next time messages are loaded from server the db timestamp will be used
+                    m_ChatHistory.emplace_back("You", TimestampTZ(), input);
                 }
             }
 
@@ -127,7 +130,7 @@ namespace IMChat::Client
                 break;
             }
         default:
-            std::println("Received invalid message");
+            fmt::println("Received invalid message");
         }
     }
 
@@ -224,7 +227,7 @@ namespace IMChat::Client
         }
         else
         {
-            std::println("[CLIENT] Invalid connection status for user {}", username);
+            fmt::println("[CLIENT] Invalid connection status for user {}", username);
         }
     }
 }

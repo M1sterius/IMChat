@@ -1,0 +1,20 @@
+CREATE DATABASE chatdb2
+    WITH ENCODING 'UTF8'
+    LC_COLLATE='en_US.UTF-8'
+    LC_CTYPE='en_US.UTF-8'
+    TEMPLATE=template0;
+
+ALTER DATABASE chatdb2 SET TIMEZONE='UTC';
+
+CREATE TABLE users (
+    id BIGSERIAL NOT NULL PRIMARY KEY,
+    username VARCHAR(20) NOT NULL,
+    password_hash VARCHAR(64) NOT NULL
+);
+
+CREATE TABLE messages (
+    id BIGSERIAL NOT NULL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id),
+    message TEXT NOT NULL,
+    timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

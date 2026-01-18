@@ -1,13 +1,12 @@
 #include "Utility.hpp"
 
-#include <print>
+#include "picosha2/picosha2.h"
+#include "fmt/format.h"
+
 #include <chrono>
-#include <format>
 #include <iostream>
 #include <thread>
 #include <unordered_set>
-
-#include "picosha2/picosha2.h"
 
 namespace IMChat
 {
@@ -24,17 +23,17 @@ namespace IMChat
         while (true)
         {
             std::cin.clear();
-            std::print("{}", text);
+            fmt::print("{}", text);
 
             if (!std::getline(std::cin >> std::ws, input))
             {
-                std::println("Invalid input!");
+                fmt::println("Invalid input!");
                 continue;
             }
 
             if (input.length() < minLength || input.length() > maxLength)
             {
-                std::println("Input length {} is outside of the allowed range of [{}, {}]!", input.length(), minLength, maxLength);
+                fmt::println("Input length {} is outside of the allowed range of [{}, {}]!", input.length(), minLength, maxLength);
                 continue;
             }
 
@@ -43,7 +42,7 @@ namespace IMChat
             {
                 if (restrictedSymbolsSet.contains(c))
                 {
-                    std::println("Character '{}' is not allowed!", c);
+                    fmt::println("Character '{}' is not allowed!", c);
                     restrictedFound = true;
                     break;
                 }
@@ -121,7 +120,7 @@ namespace IMChat
         return count;
     }
 
-    std::string TimestampZ()
+    std::string TimestampTZ()
     {
         const auto now = std::chrono::system_clock::now();
         auto time_t_now = std::chrono::system_clock::to_time_t(now);
@@ -143,12 +142,12 @@ namespace IMChat
         return oss.str();
     }
 
-    ParsedTimestamp ParseTimestamp(const std::string& timestampz)
+    ParsedTimestamp ParseTimestamp(const std::string& timestamptz)
     {
         ParsedTimestamp result;
 
         std::tm tm_utc = {};
-        std::istringstream iss(timestampz);
+        std::istringstream iss(timestamptz);
 
         char delimiter;
         iss >> tm_utc.tm_year >> delimiter >> tm_utc.tm_mon >> delimiter >> tm_utc.tm_mday;

@@ -2,9 +2,10 @@ cmake_minimum_required(VERSION 3.29)
 
 project(Client)
 
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/Bin/Client/${CMAKE_BUILD_TYPE})
 set(DEPENDENCIES_DIR ${CMAKE_SOURCE_DIR}/Dependencies)
+set(PLATFORM_LINK_LIBRARIES)
 
 add_executable(Client
     ${DEPENDENCIES_DIR}/imgui/imgui.cpp
@@ -26,6 +27,7 @@ target_include_directories(Client PRIVATE
     ${DEPENDENCIES_DIR}/boost_asio
     ${DEPENDENCIES_DIR}/glfw/include
     ${DEPENDENCIES_DIR}/glad/include
+    ${DEPENDENCIES_DIR}/fmt/include
 )
 
 add_subdirectory(${DEPENDENCIES_DIR}/glfw ${CMAKE_CURRENT_BINARY_DIR}/glfw)

@@ -12,6 +12,8 @@
 
 namespace IMChat::Client
 {
+    static constexpr auto BACKGROUND_COLOR = ImVec4(0.192f, 0.200f, 0.220f, 1.0f);
+
     static ImVector<ImWchar> BuildFontRanges(const ImGuiIO& io)
     {
         // Symbol support depends on both imgui and the font. JetBrains Mono does not support Chinese, Korean and Japanese
@@ -268,6 +270,7 @@ namespace IMChat::Client
 
         ImGui::SetNextWindowPos(viewportPos, ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(chatWindowWidth, viewportSize.y), ImGuiCond_Always);
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.169f, 0.176f, 0.192f, 1.0f));
         ImGui::Begin("IMChat", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
             ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
 
@@ -278,14 +281,28 @@ namespace IMChat::Client
             true
         );
 
-        for (const auto& msg : messages)
+        uint32_t prevDay = 0;
+        ParsedTimestamp parsedTimestamp;
+        for (const auto& [sender, timestamp, text] : messages)
         {
-            // TODO: Timestamp
-            ImGui::TextWrapped("%s (%s): %s",
-                msg.Sender.c_str(),
-                "14:10",
-                msg.Text.c_str());
+            parsedTimestamp = ParseTimestamp(timestamp);
+
+            if (parsedTimestamp.DayOfYear > prevDay)
+            {
+                const auto dayMonthText = parsedTimestamp.DayMonth.c_str();
+                const auto textWidth = ImGui::CalcTextSize(dayMonthText).x;
+
+                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (chatWindowWidth - textWidth) * 0.5f);
+                ImGui::TextUnformatted(dayMonthText);
+            }
+
+            ImGui::PushTextWrapPos(0.0f);
+            ImGui::TextColored(ImVec4(0.859f, 0.871f, 0.882f, 1.0f),
+                "%s (%s): %s", sender.c_str(), parsedTimestamp.TimeHhMm.c_str(), text.c_str());
+            ImGui::PopTextWrapPos();
             ImGui::Spacing();
+
+            prevDay = parsedTimestamp.DayOfYear;
         }
 
         // Auto-scroll
@@ -326,6 +343,7 @@ namespace IMChat::Client
         }
 
         ImGui::End();
+        ImGui::PopStyleColor();
 
         ImGui::SetNextWindowPos(ImVec2(chatWindowWidth, 0), ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(viewportSize.x * 0.2, viewportSize.y), ImGuiCond_Always);

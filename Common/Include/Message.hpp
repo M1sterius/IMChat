@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+#include "nlohmann_json/json_fwd.hpp"
+
 namespace IMChat
 {
     enum class MessageType : uint32_t
@@ -29,59 +31,7 @@ namespace IMChat
         MessageHeader Header;
         std::vector<char> Body;
 
-        static Message MakeText(const std::string& text)
-        {
-            auto message = Message();
-
-            message.Header.Type = MessageType::TextMessage;
-            message.Header.Size = static_cast<uint32_t>(text.size());
-            message.Body = std::vector(text.begin(), text.end());
-
-            return message;
-        }
-
-        static Message MakeLoginRequest(const std::string& requestJson)
-        {
-            auto message = Message();
-
-            message.Header.Type = MessageType::LoginRequest;
-            message.Header.Size = static_cast<uint32_t>(requestJson.size());
-            message.Body = std::vector(requestJson.begin(), requestJson.end());
-
-            return message;
-        }
-
-        static Message MakeLoginResponse(const std::string& responseJson)
-        {
-            auto message = Message();
-
-            message.Header.Type = MessageType::LoginResponse;
-            message.Header.Size = static_cast<uint32_t>(responseJson.size());
-            message.Body = std::vector(responseJson.begin(), responseJson.end());
-
-            return message;
-        }
-
-        static Message MakeHistoryUpdate(const std::string& updateJson)
-        {
-            auto message = Message();
-
-            message.Header.Type = MessageType::ChatHistoryUpdate;
-            message.Header.Size = static_cast<uint32_t>(updateJson.size());
-            message.Body = std::vector(updateJson.begin(), updateJson.end());
-
-            return message;
-        }
-
-        static Message MakeUsersListUpdate(const std::string& json)
-        {
-            auto message = Message();
-
-            message.Header.Type = MessageType::UsersListUpdate;
-            message.Header.Size = static_cast<uint32_t>(json.size());
-            message.Body = std::vector(json.begin(), json.end());
-
-            return message;
-        }
+        static Message Make(const std::string& string, const MessageType type);
+        static Message Make(const nlohmann::json& json, const MessageType type);
     };
 }

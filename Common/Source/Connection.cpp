@@ -1,6 +1,6 @@
 #include "Connection.hpp"
 
-#include <print>
+#include "fmt/format.h"
 
 namespace IMChat
 {
@@ -44,7 +44,7 @@ namespace IMChat
     {
         if (message.Header.Size < 1)
         {
-            std::println("[CONNECTION] Sending empty messages is not allowed!");
+            fmt::println("[CONNECTION] Sending empty messages is not allowed!");
             return;
         }
 
@@ -53,7 +53,7 @@ namespace IMChat
             [](const asio::error_code ec, const std::size_t size)
         {
             if (ec)
-                std::println("[CONNECTION] Failed to send message header!");
+                fmt::println("[CONNECTION] Failed to send message header!");
         });
 
         // Send body
@@ -61,7 +61,7 @@ namespace IMChat
             [](const asio::error_code ec, const std::size_t size)
         {
             if (ec)
-                std::println("[CONNECTION] Failed to send message body!");
+                fmt::println("[CONNECTION] Failed to send message body!");
         });
     }
 
@@ -84,7 +84,7 @@ namespace IMChat
             }
             else
             {
-                std::println("[CONNECTION] Error reading message header: {}", ec.message());
+                fmt::println("[CONNECTION] Error reading message header: {}", ec.message());
                 self->Disconnect();
             }
         });
@@ -107,7 +107,7 @@ namespace IMChat
             }
             else
             {
-                std::println("[CONNECTION] Error reading message body: {}", ec.message());
+                fmt::println("[CONNECTION] Error reading message body: {}", ec.message());
                 self->Disconnect();
             }
         });

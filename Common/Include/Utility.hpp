@@ -21,6 +21,6 @@ namespace IMChat
     std::string GetTimeHhMm();
     size_t Utf8Strlen(const char* str);
 
-    std::string TimestampZ();
-    ParsedTimestamp ParseTimestamp(const std::string& timestampz);
+    std::string TimestampTZ();
+    ParsedTimestamp ParseTimestamp(const std::string& timestamptz);
 }
