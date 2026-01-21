@@ -21,11 +21,13 @@ namespace IMChat::Client
         void BeginFrame();
         void EndFrame();
 
-        void DrawSimpleText(const std::string& text);
-        bool DrawErrorPopUp(const std::string& text); // returns true when user clicks OK
-        bool DrawLoginPopUp(std::string& username, std::string& password, const bool loginFailed, const std::string& failureReason); // returns true when user clicks Login
+        bool DrawPopUp(const std::string& label, const std::string& text, const bool okButton); // returns true when user clicks OK
+        bool DrawLoginWindow(std::string& username, std::string& password, const bool loginFailed, const std::string& failureReason); // returns true when user clicks Login
         bool DrawMainChatUI(const std::list<TextMessage>& messages, const std::list<std::string>& connectedUsers, std::string& input); // returns true when user clicks SEND
     private:
         GLFWwindow* m_Window;
+
+        bool DrawChatSubwindow(const std::list<TextMessage>& messages, std::string& input);
+        void DrawUsersListSubwindow(const std::list<std::string>& connectedUsers);
     };
 }

@@ -3,29 +3,12 @@
 #include "nlohmann_json/json.hpp"
 #include "fmt/format.h"
 
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include "windows.h"
-#endif
-
-#include <print>
-
 namespace IMChat::Client
 {
     Client::Client(const char* ip, const uint16_t port)
         : m_LoggedIn(false), m_AuthComplete(false), m_LoginFailed(false)
     {
-        try
-        {
-            m_UI = std::make_unique<ClientUI>();
-
-            #ifdef _WIN32
-            FreeConsole();
-            #endif
-        } catch (const std::exception& e) {
-            fmt::println("Failed to initialize client UI. Error: {}", e.what());
-            return;
-        }
+        m_UI = std::make_unique<ClientUI>();
 
         asio::error_code ec;
         auto idleWork = asio::make_work_guard(m_Context);
@@ -64,17 +47,17 @@ namespace IMChat::Client
 
             if (!m_Connection || !m_Connection->IsOpen()) // No server connection
             {
-                if (m_UI->DrawErrorPopUp("Failed to connect to the server!"))
+                if (m_UI->DrawPopUp("Error", "Failed to connect to the server!", true))
                     return;
             }
             else if (!m_LoggedIn && m_AuthComplete) // Waiting for server response to login request
             {
-                m_UI->DrawSimpleText("Awaiting server response...");
+                m_UI->DrawPopUp("Waiting", "Awaiting server response...", false);
             }
             else if (!m_LoggedIn) // Login window
             {
                 static std::string password;
-                if (m_UI->DrawLoginPopUp(m_Username, password, m_LoginFailed, m_LoginFailureReason))
+                if (m_UI->DrawLoginWindow(m_Username, password, m_LoginFailed, m_LoginFailureReason))
                 {
                     m_AuthComplete = true;
                     m_LoginFailed = false;
@@ -147,7 +130,7 @@ namespace IMChat::Client
 
         if (response == "Approved")
         {
-            m_ConnectedUsers.push_front(std::format("{} (You)", m_Username));
+            m_ConnectedUsers.push_front(fmt::format("{} (You)", m_Username));
             m_LoggedIn = true;
 
             ProcessLoginResponseInfo(json);

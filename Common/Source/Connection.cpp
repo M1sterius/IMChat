@@ -40,8 +40,19 @@ namespace IMChat
         m_DisconnectCallback = callback;
     }
 
+    void Connection::Disconnect()
+    {
+        m_Socket.cancel();
+        m_Socket.close();
+
+        if (m_DisconnectCallback)
+            m_DisconnectCallback(shared_from_this());
+    }
+
     void Connection::SendMessage(const Message& message)
     {
+        auto self = shared_from_this();
+
         if (message.Header.Size < 1)
         {
             fmt::println("[CONNECTION] Sending empty messages is not allowed!");
@@ -50,25 +61,25 @@ namespace IMChat
 
         // Send header
         asio::async_write(m_Socket, asio::buffer(&message.Header, sizeof(MessageHeader)),
-            [](const asio::error_code ec, const std::size_t size)
+            [self](const asio::error_code ec, const std::size_t size)
         {
             if (ec)
+            {
                 fmt::println("[CONNECTION] Failed to send message header!");
+                self->Disconnect();
+            }
         });
 
         // Send body
         asio::async_write(m_Socket, asio::buffer(message.Body.data(), message.Header.Size),
-            [](const asio::error_code ec, const std::size_t size)
+            [self](const asio::error_code ec, const std::size_t size)
         {
             if (ec)
+            {
                 fmt::println("[CONNECTION] Failed to send message body!");
+                self->Disconnect();
+            }
         });
-    }
-
-    void Connection::Disconnect()
-    {
-        if (m_DisconnectCallback)
-            m_DisconnectCallback(shared_from_this());
     }
 
     void Connection::ReadMessageHeader(std::shared_ptr<Message> message)

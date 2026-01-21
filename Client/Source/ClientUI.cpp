@@ -12,9 +12,10 @@
 
 namespace IMChat::Client
 {
-    static constexpr auto BACKGROUND_COLOR = ImVec4(0.192f, 0.200f, 0.220f, 1.0f);
+    static constexpr auto BACKGROUND_COLOR = ImVec4(0.169f, 0.176f, 0.192f, 1.0f);
+    static constexpr auto TEXT_COLOR = ImVec4(0.859f, 0.871f, 0.882f, 1.0f);
 
-    static ImVector<ImWchar> BuildFontRanges(const ImGuiIO& io)
+    static ImVector<ImWchar> BuildFontRanges(ImGuiIO& io)
     {
         // Symbol support depends on both imgui and the font. JetBrains Mono does not support Chinese, Korean and Japanese
         ImFontGlyphRangesBuilder builder;
@@ -114,7 +115,11 @@ namespace IMChat::Client
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGui::StyleColorsDark();
+
         auto& io = ImGui::GetIO();
+        auto& style = ImGui::GetStyle();
+
+        style.Colors[ImGuiCol_WindowBg] = BACKGROUND_COLOR;
 
         const auto ranges = BuildFontRanges(io);
         io.Fonts->AddFontFromFileTTF("Assets/Fonts/JetBrainsMono-Regular.ttf",
@@ -160,39 +165,33 @@ namespace IMChat::Client
         glfwSwapBuffers(m_Window);
     }
 
-    void ClientUI::DrawSimpleText(const std::string& text)
-    {
-        ImGui::SetNextWindowPos(
-            ImGui::GetMainViewport()->GetCenter(),
-            ImGuiCond_Always,
-            ImVec2(0.5f, 0.5f)
-        );
-
-        ImGui::Text(text.c_str(), ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
-    }
-
-    bool ClientUI::DrawErrorPopUp(const std::string& text)
+    bool ClientUI::DrawPopUp(const std::string& label, const std::string& text, const bool okButton)
     {
         bool ret = false;
 
-        ImGui::OpenPopup("Error");
+        const auto viewport = ImGui::GetMainViewport();
+        const auto popUpLabel = label.empty() ? "PopUp" : label.c_str();
+        const auto buttonWidth = ImGui::CalcTextSize("OK").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        const auto buttonIndent = std::max((ImGui::GetContentRegionAvail().x - buttonWidth) * 0.5f, 0.0f);
 
-        ImGui::SetNextWindowPos(
-            ImGui::GetMainViewport()->GetCenter(),
-            ImGuiCond_Always,
-            ImVec2(0.5f, 0.5f)
-        );
+        ImGui::OpenPopup(popUpLabel);
+        ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
 
-        if (ImGui::BeginPopupModal("Error", nullptr,
+        if (ImGui::BeginPopupModal(popUpLabel, nullptr,
             ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse))
         {
             ImGui::Text("%s", text.c_str());
             ImGui::Spacing();
 
-            if (ImGui::Button("OK"))
+            if (okButton)
             {
-                ret = true;
-                ImGui::CloseCurrentPopup();
+                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + buttonIndent);
+
+                if (ImGui::Button("OK"))
+                {
+                    ret = true;
+                    ImGui::CloseCurrentPopup();
+                }
             }
 
             ImGui::EndPopup();
@@ -201,60 +200,56 @@ namespace IMChat::Client
         return ret;
     }
 
-    bool ClientUI::DrawLoginPopUp(std::string& username, std::string& password, const bool loginFailed, const std::string& failureReason)
+    bool ClientUI::DrawLoginWindow(std::string& username, std::string& password, const bool loginFailed, const std::string& failureReason)
     {
-        // no *4 because username and password use only ASCII characters
+        // no *4 because username and password use ASCII characters only
         static char username_arr[MAX_USERNAME_LENGTH + 1] = {0};
         static char password_arr[MAX_PASSWORD_LENGTH + 1] = {0};
         bool ret = false;
 
-        const auto popUpWidth = std::max(ImGui::GetMainViewport()->Size.x * 0.28f, 300.0f);
+        const auto windowWidth = std::max(ImGui::GetMainViewport()->Size.x * 0.28f, 300.0f);
 
-        ImGui::OpenPopup("Login");
+        ImGui::SetNextWindowSize(ImVec2(windowWidth, 0), ImGuiCond_Always);
+        ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        ImGui::Begin("Login", nullptr,
+            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
 
-        ImGui::SetNextWindowSize(ImVec2(popUpWidth, 0), ImGuiCond_Always);
-        ImGui::SetNextWindowPos(
-            ImGui::GetMainViewport()->GetCenter(),
-            ImGuiCond_Always,
-            ImVec2(0.5f, 0.5f)
-        );
+        ImGui::Text("Please log in");
+        ImGui::Separator();
 
-        if (ImGui::BeginPopupModal(
-                "Login",
-                nullptr,
-                ImGuiWindowFlags_NoResize |
-                ImGuiWindowFlags_NoMove |
-                ImGuiWindowFlags_NoCollapse))
+        ImGui::InputText("Username", username_arr, IM_ARRAYSIZE(username_arr),
+            ImGuiInputTextFlags_CallbackCharFilter, UsernameInputFilter);
+        ImGui::InputText("Password", password_arr, IM_ARRAYSIZE(password_arr),
+            ImGuiInputTextFlags_Password | ImGuiInputTextFlags_CallbackCharFilter, PasswordInputFilter);
+
+        if (loginFailed)
+            ImGui::TextColored(ImVec4(1,0,0,1), "Login failed. %s", failureReason.c_str());
+
+        ImGui::Spacing();
+
+        ImGui::BeginDisabled(strlen(username_arr) < MIN_USERNAME_LENGTH || strlen(password_arr) < MIN_PASSWORD_LENGTH);
+        if (ImGui::Button("Login", ImVec2(120, 0)))
         {
-            ImGui::Text("Please log in");
-            ImGui::Separator();
-
-            ImGui::InputText("Username", username_arr, IM_ARRAYSIZE(username_arr),
-                ImGuiInputTextFlags_CallbackCharFilter, UsernameInputFilter);
-            ImGui::InputText("Password", password_arr, IM_ARRAYSIZE(password_arr),
-                ImGuiInputTextFlags_Password | ImGuiInputTextFlags_CallbackCharFilter, PasswordInputFilter);
-
-            if (loginFailed)
-                ImGui::TextColored(ImVec4(1,0,0,1), "Login failed. %s", failureReason.c_str());
-
-            ImGui::Spacing();
-
-            ImGui::BeginDisabled(strlen(username_arr) < MIN_USERNAME_LENGTH || strlen(password_arr) < MIN_PASSWORD_LENGTH);
-            if (ImGui::Button("Login", ImVec2(120, 0)))
-            {
-                username = username_arr;
-                password = password_arr;
-                ret = true;
-            }
-            ImGui::EndDisabled();
-
-            ImGui::EndPopup();
+            username = username_arr;
+            password = password_arr;
+            ret = true;
         }
+        ImGui::EndDisabled();
+
+        ImGui::End();
 
         return ret;
     }
 
     bool ClientUI::DrawMainChatUI(const std::list<TextMessage>& messages, const std::list<std::string>& connectedUsers, std::string& input)
+    {
+        const auto ret = DrawChatSubwindow(messages, input);
+        DrawUsersListSubwindow(connectedUsers);
+
+        return ret;
+    }
+
+    bool ClientUI::DrawChatSubwindow(const std::list<TextMessage>& messages, std::string& input)
     {
         // create *4 + 1 buffer to make sure that all possible utf8 codepoints fit
         static char input_arr[MAX_TEXT_MESSAGE_LENGTH * 4 + 1] = {0};
@@ -270,11 +265,10 @@ namespace IMChat::Client
 
         ImGui::SetNextWindowPos(viewportPos, ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(chatWindowWidth, viewportSize.y), ImGuiCond_Always);
-        ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.169f, 0.176f, 0.192f, 1.0f));
         ImGui::Begin("IMChat", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
             ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
 
-        // Message history
+        // Chat history
         ImGui::BeginChild(
             "History",
             ImVec2(0, -inputBoxHeight - ImGui::GetStyle().ItemSpacing.y * 2),
@@ -297,8 +291,8 @@ namespace IMChat::Client
             }
 
             ImGui::PushTextWrapPos(0.0f);
-            ImGui::TextColored(ImVec4(0.859f, 0.871f, 0.882f, 1.0f),
-                "%s (%s): %s", sender.c_str(), parsedTimestamp.TimeHhMm.c_str(), text.c_str());
+            ImGui::TextColored(TEXT_COLOR, "%s (%s): %s", sender.c_str(),
+                parsedTimestamp.TimeHhMm.c_str(), text.c_str());
             ImGui::PopTextWrapPos();
             ImGui::Spacing();
 
@@ -343,7 +337,15 @@ namespace IMChat::Client
         }
 
         ImGui::End();
-        ImGui::PopStyleColor();
+
+        return ret;
+    }
+
+    void ClientUI::DrawUsersListSubwindow(const std::list<std::string>& connectedUsers)
+    {
+        const auto viewport = ImGui::GetMainViewport();
+        const auto viewportSize = viewport->Size;
+        const auto chatWindowWidth = viewportSize.x * 0.8f;
 
         ImGui::SetNextWindowPos(ImVec2(chatWindowWidth, 0), ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(viewportSize.x * 0.2, viewportSize.y), ImGuiCond_Always);
@@ -352,12 +354,10 @@ namespace IMChat::Client
 
         for (const auto& user : connectedUsers)
         {
-            ImGui::Text("%s", user.c_str());
+            ImGui::TextColored(TEXT_COLOR,"%s", user.c_str());
             ImGui::Spacing();
         }
 
         ImGui::End();
-
-        return ret;
     }
 }

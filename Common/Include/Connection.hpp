@@ -2,9 +2,6 @@
 
 #include "Message.hpp"
 
-#ifdef _WIN32
-#define _WIN32_WINNT 0x0A00
-#endif
 #define ASIO_STANDALONE
 #include "asio.hpp"
 
@@ -29,11 +26,14 @@ namespace IMChat
         void Disconnect();
 
         bool IsOpen() const;
+
         uint32_t GetID() const { return m_ID; }
+        void SetID(const uint32_t id) { m_ID = id; }
+
         asio::ip::tcp::socket& GetSocket() { return m_Socket; }
+        const asio::ip::tcp::socket& GetSocket() const { return m_Socket; }
 
         void SendMessage(const Message& message);
-
         void SetReadMessageCallback(const std::function<void(std::shared_ptr<Connection>, std::shared_ptr<Message>)>& callback);
         void SetDisconnectCallback(const std::function<void(std::shared_ptr<Connection>)>& callback);
     private:
