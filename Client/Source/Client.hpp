@@ -11,7 +11,9 @@
 #include <thread>
 
 // Do this because of stupid Windows API
+#ifdef _WIN32
 #undef SendMessage
+#endif
 
 namespace IMChat::Client
 {
@@ -19,6 +21,7 @@ namespace IMChat::Client
     {
     private:
         static constexpr auto MAX_CHAT_HISTORY_LENGTH = 100u;
+        static constexpr auto MAX_SERVER_RESPONSE_WAIT_TIME = 5u;
     public:
         Client(const char* ip, const uint16_t port);
         ~Client();
@@ -33,9 +36,10 @@ namespace IMChat::Client
         std::list<TextMessage> m_ChatHistory;
         std::list<std::string> m_ConnectedUsers;
         std::string m_LoginFailureReason;
+        std::time_t m_LoginRequestSentTime;
         bool m_LoggedIn; // true if client is fully logged in and able to send messages
-        bool m_AuthComplete; // true when login request is sent to the server and client should await the response
-        bool m_LoginFailed; // true if user provided wrong username or password
+        bool m_LoginRequestSent; // true when login request is sent to the server and client should await the response
+        bool m_LoginFailed; // true if login was rejected for any reason
 
         void OnReceiveMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
 

@@ -3,6 +3,7 @@
 #include "Message.hpp"
 
 #define ASIO_STANDALONE
+#define _WIN32_WINNT 0x0A00
 #include "asio.hpp"
 
 #include <memory>

@@ -2,6 +2,7 @@
 
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
+#include "fmt/format.h"
 
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_glfw.h"
@@ -35,7 +36,7 @@ namespace IMChat::Client
 
     static int UsernameInputFilter(ImGuiInputTextCallbackData* data)
     {
-        static std::unordered_set<char> allowedCharacters;
+        static std::unordered_set<int> allowedCharacters;
         if (allowedCharacters.empty())
         {
             const auto len = strlen(USERNAME_ALLOWED_CHARACTERS_STRING);
@@ -51,7 +52,7 @@ namespace IMChat::Client
 
     static int PasswordInputFilter(ImGuiInputTextCallbackData* data)
     {
-        static std::unordered_set<char> allowedCharacters;
+        static std::unordered_set<int> allowedCharacters;
         if (allowedCharacters.empty())
         {
             const auto len = strlen(PASSWORD_ALLOWED_CHARACTERS_STRING);
@@ -349,7 +350,7 @@ namespace IMChat::Client
 
         ImGui::SetNextWindowPos(ImVec2(chatWindowWidth, 0), ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(viewportSize.x * 0.2, viewportSize.y), ImGuiCond_Always);
-        ImGui::Begin(std::format("Users - {}", connectedUsers.size()).c_str(), nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+        ImGui::Begin(fmt::format("Users - {}", connectedUsers.size()).c_str(), nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
             ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
 
         for (const auto& user : connectedUsers)

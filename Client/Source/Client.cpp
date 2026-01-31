@@ -3,19 +3,28 @@
 #include "nlohmann_json/json.hpp"
 #include "fmt/format.h"
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include "windows.h"
+#endif
+
 namespace IMChat::Client
 {
     Client::Client(const char* ip, const uint16_t port)
-        : m_LoggedIn(false), m_AuthComplete(false), m_LoginFailed(false)
+        : m_LoginRequestSentTime(0), m_LoggedIn(false), m_LoginRequestSent(false), m_LoginFailed(false)
     {
         m_UI = std::make_unique<ClientUI>();
+
+        #if defined(_WIN32) && !defined(_DEBUG)
+        FreeConsole();
+        #endif
 
         asio::error_code ec;
         auto idleWork = asio::make_work_guard(m_Context);
         m_Worker = std::thread([this] { m_Context.run(); });
 
         asio::ip::tcp::socket socket(m_Context);
-        socket.connect(asio::ip::tcp::endpoint(asio::ip::make_address(ip), port), ec);
+        ec = socket.connect(asio::ip::tcp::endpoint(asio::ip::make_address(ip), port), ec);
 
         if (ec)
             return;
@@ -45,12 +54,20 @@ namespace IMChat::Client
         {
             m_UI->BeginFrame();
 
+            if (!m_LoggedIn && m_LoginRequestSent &&
+                (time(nullptr) - m_LoginRequestSentTime) > MAX_SERVER_RESPONSE_WAIT_TIME)
+            {
+                m_LoginFailed = true;
+                m_LoginRequestSent = false;
+                m_LoginFailureReason = "No response from server!";
+            }
+
             if (!m_Connection || !m_Connection->IsOpen()) // No server connection
             {
                 if (m_UI->DrawPopUp("Error", "Failed to connect to the server!", true))
                     return;
             }
-            else if (!m_LoggedIn && m_AuthComplete) // Waiting for server response to login request
+            else if (!m_LoggedIn && m_LoginRequestSent) // Waiting for server response to login request
             {
                 m_UI->DrawPopUp("Waiting", "Awaiting server response...", false);
             }
@@ -59,14 +76,15 @@ namespace IMChat::Client
                 static std::string password;
                 if (m_UI->DrawLoginWindow(m_Username, password, m_LoginFailed, m_LoginFailureReason))
                 {
-                    m_AuthComplete = true;
+                    m_LoginRequestSent = true;
                     m_LoginFailed = false;
+                    m_LoginRequestSentTime = time(nullptr);
 
                     auto json = nlohmann::json();
                     json["Username"] = m_Username;
                     json["PasswordHash"] = SHA256(password);
 
-                    auto request = Message::Make(json, MessageType::LoginRequest);
+                    const auto request = Message::Make(json, MessageType::LoginRequest);
                     m_Connection->SendMessage(request);
                 }
             }
@@ -92,23 +110,22 @@ namespace IMChat::Client
 
     void Client::OnReceiveMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message)
     {
+        const auto json = ParseJson(message->Body, message->Body.size());
+
         switch (message->Header.Type)
         {
         case MessageType::LoginResponse:
             {
-                const auto json = ParseJson(message->Body, message->Body.size());
                 ProcessLoginResponse(json);
                 break;
             }
         case MessageType::ChatHistoryUpdate:
             {
-                const auto json = ParseJson(message->Body, message->Body.size());
                 ProcessChatHistoryUpdate(json);
                 break;
             }
         case MessageType::UsersListUpdate:
             {
-                const auto json = ParseJson(message->Body, message->Body.size());
                 ProcessUsersListUpdate(json);
                 break;
             }
@@ -141,12 +158,12 @@ namespace IMChat::Client
             m_LoginFailed = true;
         }
 
-        m_AuthComplete = false;
+        m_LoginRequestSent = false;
     }
 
     void Client::ProcessLoginResponseInfo(const nlohmann::json& json)
     {
-        if (!json.contains("Messages") | !json.contains("Users"))
+        if (!json.contains("Messages") || !json.contains("Users"))
             return; // Corrupted response
 
         // Chat history

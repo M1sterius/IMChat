@@ -21,11 +21,6 @@ add_executable(Client
     Source/ClientUI.cpp
 )
 
-# Disable console
-if (WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")
-    set_target_properties(Client PROPERTIES WIN32_EXECUTABLE TRUE)
-endif ()
-
 target_include_directories(Client PRIVATE
     ${DEPENDENCIES_DIR}
     ${CMAKE_SOURCE_DIR}/Common/Include

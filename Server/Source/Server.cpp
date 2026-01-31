@@ -165,7 +165,7 @@ namespace IMChat::Server
         // Chat history
         try
         {
-            const auto query = std::format("SELECT username, message, timestamp FROM (SELECT users.username, "
+            const auto query = fmt::format("SELECT username, message, timestamp FROM (SELECT users.username, "
                 "messages.message, messages.timestamp FROM messages JOIN users ON messages.user_id=users.id "
                 "ORDER BY messages.timestamp DESC LIMIT {}) ORDER BY timestamp ASC", MAX_CHAT_HISTORY_SEND_LENGTH);
 
