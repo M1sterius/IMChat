@@ -23,13 +23,8 @@ namespace IMChat::Client
         auto idleWork = asio::make_work_guard(m_Context);
         m_Worker = std::thread([this] { m_Context.run(); });
 
-        asio::ip::tcp::socket socket(m_Context);
-        ec = socket.connect(asio::ip::tcp::endpoint(asio::ip::make_address(ip), port), ec);
-
-        if (ec)
-            return;
-
-        m_Connection = Connection::Make(std::move(socket));
+        m_Connection = std::make_shared<Connection>(m_Context);
+        m_Connection->Connect(ip, port);
 
         // Use lambda or std::bind to pass a callback method
         m_Connection->SetReadMessageCallback([this](std::shared_ptr<Connection> client, std::shared_ptr<Message> msg)
@@ -62,7 +57,7 @@ namespace IMChat::Client
                 m_LoginFailureReason = "No response from server!";
             }
 
-            if (!m_Connection || !m_Connection->IsOpen()) // No server connection
+            if (!m_Connection || !m_Connection->IsConnected()) // No server connection
             {
                 if (m_UI->DrawPopUp("Error", "Failed to connect to the server!", true))
                     return;

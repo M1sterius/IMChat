@@ -70,20 +70,24 @@ namespace IMChat::Server
             {
                 fmt::println("[SERVER] Client connected at {}:{}.", socket.remote_endpoint().address().to_string(), socket.remote_endpoint().port());
 
-                const auto newId = m_IDs++;
-                m_Clients[newId] = ClientConnection{
-                    .Connection = Connection::Make(std::move(socket), newId),
-                    .LoggedIn = false
-                };
+                const auto id = m_IDs++;
 
-                m_Clients[newId].Connection->SetReadMessageCallback([this](std::shared_ptr<Connection> client, std::shared_ptr<Message> msg)
+                const auto connection = std::make_shared<Connection>(std::move(socket), id);
+                connection->Start();
+
+                connection->SetReadMessageCallback([this](std::shared_ptr<Connection> client, std::shared_ptr<Message> msg)
                 {
                     this->OnReceiveMessage(client, msg);
                 });
-                m_Clients[newId].Connection->SetDisconnectCallback([this](std::shared_ptr<Connection> client)
+                connection->SetShutdownCallback([this](std::shared_ptr<Connection> client)
                 {
                     this->OnClientDisconnect(client);
                 });
+
+                m_Clients[id] = ClientConnection{
+                    .Connection = connection,
+                    .LoggedIn = false
+                };
             }
             else
             {

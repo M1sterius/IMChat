@@ -3,9 +3,16 @@ cmake_minimum_required(VERSION 3.29)
 project(Client)
 
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/Bin/Client/${CMAKE_BUILD_TYPE})
 set(DEPENDENCIES_DIR ${CMAKE_SOURCE_DIR}/Dependencies)
 set(PLATFORM_LINK_LIBRARIES)
+
+# Do this because for some reason MSVC automatically creates CMAKE_BUILD_TYPE directory at the
+# end of CMAKE_RUNTIME_OUTPUT_DIRECTORY path which messes up assets post build copy directory
+if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/Bin/Client)
+else ()
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/Bin/Client/${CMAKE_BUILD_TYPE})
+endif ()
 
 add_executable(Client
     ${DEPENDENCIES_DIR}/imgui/imgui.cpp
@@ -36,6 +43,6 @@ target_link_libraries(Client PRIVATE Common glfw)
 
 add_custom_command(TARGET Client POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-    ${CMAKE_CURRENT_SOURCE_DIR}/Assets/
-    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Assets/
+    ${CMAKE_CURRENT_SOURCE_DIR}/Assets
+    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Assets
 )

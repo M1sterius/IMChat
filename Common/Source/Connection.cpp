@@ -4,17 +4,16 @@
 
 namespace IMChat
 {
-    std::shared_ptr<Connection> Connection::Make(asio::ip::tcp::socket socket, const uint32_t ID)
+    Connection::Connection(asio::ip::tcp::socket socket, const uint32_t id)
+        : m_Socket(std::move(socket)), m_ID(id)
     {
-        auto connection = std::make_shared<Connection>(std::move(socket), ID);
-        connection->Start();
-        return connection;
+        // Async ops must be started only after Connection is fully constructed!
     }
 
-    Connection::Connection(asio::ip::tcp::socket socket, const uint32_t ID)
-        : m_Socket(std::move(socket)), m_ID(ID)
+    Connection::Connection(asio::io_context& context, const uint32_t id)
+        : m_Socket(context), m_ID(id)
     {
-        // Async ops can only be started after Connection is fully constructed, therefore separate Start method
+        // Async ops must be started only after Connection is fully constructed!
     }
 
     Connection::~Connection() = default;
@@ -25,25 +24,26 @@ namespace IMChat
             ReadMessageHeader(std::make_shared<Message>());
     }
 
-    bool Connection::IsOpen() const
+    void Connection::Connect(const char* ip, const uint16_t port)
+    {
+        m_Socket.connect(asio::ip::tcp::endpoint(asio::ip::make_address(ip), port));
+
+        if (m_Socket.is_open())
+            ReadMessageHeader(std::make_shared<Message>());
+    }
+
+    bool Connection::IsConnected() const
     {
         return m_Socket.is_open();
     }
 
-    void Connection::SetReadMessageCallback(const std::function<void(std::shared_ptr<Connection>, std::shared_ptr<Message>)>& callback)
+    void Connection::Shutdown()
     {
-        m_ReadCallback = callback;
-    }
+        m_IsConnected = false;
 
-    void Connection::SetDisconnectCallback(const std::function<void(std::shared_ptr<Connection>)>& callback)
-    {
-        m_DisconnectCallback = callback;
-    }
-
-    void Connection::Disconnect()
-    {
-        m_Socket.cancel();
-        m_Socket.close();
+        asio::error_code ec;
+        ec = m_Socket.cancel(ec);
+        ec = m_Socket.close(ec);
 
         if (m_DisconnectCallback)
             m_DisconnectCallback(shared_from_this());
@@ -66,7 +66,7 @@ namespace IMChat
             if (ec)
             {
                 fmt::println("[CONNECTION] Failed to send message header!");
-                self->Disconnect();
+                self->Shutdown();
             }
         });
 
@@ -77,7 +77,7 @@ namespace IMChat
             if (ec)
             {
                 fmt::println("[CONNECTION] Failed to send message body!");
-                self->Disconnect();
+                self->Shutdown();
             }
         });
     }
@@ -96,7 +96,7 @@ namespace IMChat
             else
             {
                 fmt::println("[CONNECTION] Error reading message header: {}", ec.message());
-                self->Disconnect();
+                self->Shutdown();
             }
         });
     }
@@ -119,7 +119,7 @@ namespace IMChat
             else
             {
                 fmt::println("[CONNECTION] Error reading message body: {}", ec.message());
-                self->Disconnect();
+                self->Shutdown();
             }
         });
     }
