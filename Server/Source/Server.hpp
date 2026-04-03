@@ -13,7 +13,7 @@
 
 namespace IMChat::Server
 {
-    class Server
+    class Server : public std::enable_shared_from_this<Server>
     {
     private:
         struct ClientConnection
@@ -29,25 +29,29 @@ namespace IMChat::Server
         explicit Server(const uint16_t port);
         ~Server();
 
+        void Start();
         void Run();
+        void Shutdown();
     private:
         asio::io_context m_Context;
         std::thread m_Worker;
+        asio::executor_work_guard<asio::io_context::executor_type> m_WorkGuard;
         std::unique_ptr<asio::ip::tcp::acceptor> m_Acceptor;
         std::unique_ptr<pqxx::connection> m_dbConnection;
         std::unordered_map<uint32_t, ClientConnection> m_Clients;
+        TSQueue<std::pair<std::shared_ptr<Connection>, std::shared_ptr<Message>>> m_MessageQueue;
+        TSQueue<uint32_t> m_DisconnectQueue;
         uint32_t m_IDs;
-        bool m_StartupOK;
+        bool m_Running;
 
         void WaitForClientConnection();
         void OnReceiveMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
-        void OnClientDisconnect(std::shared_ptr<Connection> connection);
 
         void ProcessTextMessage(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
         void ProcessLoginRequest(std::shared_ptr<Connection> connection, std::shared_ptr<Message> message);
 
         void PopulateLoginResponseInfo(nlohmann::json& json, const uint32_t connectionId);
-        void SendChatHistoryUpdate(const uint32_t messageAuthorConnectionId, const std::string& message);
+        void SendChatHistoryUpdate(const uint32_t messageAuthorConnectionId, const std::string& message, const std::string& timestamp);
         void SendUsersListUpdate(const uint32_t userConnectionId, const std::string& username, const std::string& status);
     };
 }

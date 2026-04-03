@@ -9,82 +9,93 @@
 namespace IMChat::Server
 {
     Server::Server(const uint16_t port)
-        : m_IDs(1), m_StartupOK(false)
+        : m_WorkGuard(asio::make_work_guard(m_Context)), m_IDs(1), m_Running(true)
     {
-        m_Acceptor = std::make_unique<asio::ip::tcp::acceptor>(m_Context, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port));
+        m_Acceptor = std::make_unique<asio::ip::tcp::acceptor>(m_Context,
+            asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port));
 
-        try
-        {
-            const auto user = GetEnv("IMCHAT_POSTGRESQL_USER");
-            const auto dbname = GetEnv("IMCHAT_DB_NAME");
-            const auto password = GetEnv("IMCHAT_DB_PASSWORD");
-
-            if (user.empty() || dbname.empty() || password.empty())
-            {
-                fmt::println("[SERVER] Failed to obtain environment variables for db connection string.");
-                return;
-            }
-
-            m_dbConnection = std::make_unique<pqxx::connection>(fmt::format(
-                "user={} dbname={} password={}", user, dbname, password));
-        }
-        catch (const std::exception& e)
-        {
-            fmt::println("[SERVER] Failed to connect to the db. Error: {}.", e.what());
-            return;
-        }
-
-        WaitForClientConnection();
         m_Worker = std::thread([this] { m_Context.run(); });
 
+        const auto user = GetEnv("IMCHAT_POSTGRESQL_USER");
+        const auto dbname = GetEnv("IMCHAT_DB_NAME");
+        const auto password = GetEnv("IMCHAT_DB_PASSWORD");
+
+        if (user.empty() || dbname.empty() || password.empty())
+            throw std::runtime_error("Failed to obtain environment variables for db connection string.");
+
+        m_dbConnection = std::make_unique<pqxx::connection>(fmt::format(
+            "user={} dbname={} password={}", user, dbname, password));
+
         fmt::println("[SERVER] Successfully connected to db.");
-        fmt::println("[SERVER] Server started.");
-        m_StartupOK = true;
     }
 
-    Server::~Server()
+    Server::~Server() = default;
+
+    void Server::Start()
     {
+        WaitForClientConnection();
+        fmt::println("[SERVER] Server started.");
+    }
+
+    void Server::Run()
+    {
+        fmt::println("[SERVER] Server running.");
+
+        while (m_Running)
+        {
+            if (!m_MessageQueue.empty())
+            {
+                const auto [connection, message] = m_MessageQueue.pop_front();
+                OnReceiveMessage(connection, message);
+            }
+
+            if (!m_DisconnectQueue.empty())
+            {
+                const auto connectionId = m_DisconnectQueue.pop_front();
+                const auto& username = m_Clients.at(connectionId).Username;
+
+                SendUsersListUpdate(connectionId, username, "Disconnected");
+                fmt::println("[SERVER] Client {} ({}) disconnected!", connectionId, username);
+                m_Clients.erase(connectionId);
+            }
+        }
+    }
+
+    void Server::Shutdown()
+    {
+        asio::error_code ec;
+        ec = m_Acceptor->cancel(ec);
+        ec = m_Acceptor->close(ec);
+
         m_Context.stop();
         if (m_Worker.joinable())
             m_Worker.join();
     }
 
-    void Server::Run()
-    {
-        if (!m_StartupOK)
-        {
-            fmt::println("[SERVER] An error occurred during server startup. Server terminated.");
-            return;
-        }
-
-        fmt::println("[SERVER] Server running.");
-        fmt::println("[SERVER] Press any button to terminate the server.");
-        std::cin.get();
-    }
-
     void Server::WaitForClientConnection()
     {
-        m_Acceptor->async_accept([this](const asio::error_code& ec, asio::ip::tcp::socket socket)
+        auto self = shared_from_this();
+        m_Acceptor->async_accept([self](const asio::error_code& ec, asio::ip::tcp::socket socket)
         {
             if (!ec)
             {
                 fmt::println("[SERVER] Client connected at {}:{}.", socket.remote_endpoint().address().to_string(), socket.remote_endpoint().port());
 
-                const auto id = m_IDs++;
+                const auto id = self->m_IDs++;
 
                 const auto connection = std::make_shared<Connection>(std::move(socket), id);
                 connection->Start();
 
-                connection->SetReadMessageCallback([this](std::shared_ptr<Connection> client, std::shared_ptr<Message> msg)
+                connection->SetReadMessageCallback([self](std::shared_ptr<Connection> client, std::shared_ptr<Message> msg)
                 {
-                    this->OnReceiveMessage(client, msg);
+                    self->m_MessageQueue.push({client, msg});
                 });
-                connection->SetShutdownCallback([this](std::shared_ptr<Connection> client)
+                connection->SetShutdownCallback([self](std::shared_ptr<Connection> client)
                 {
-                    this->OnClientDisconnect(client);
+                    self->m_DisconnectQueue.push(client->GetID());
                 });
 
-                m_Clients[id] = ClientConnection{
+                self->m_Clients[id] = ClientConnection{
                     .Connection = connection,
                     .LoggedIn = false
                 };
@@ -94,7 +105,7 @@ namespace IMChat::Server
                 fmt::println("[SERVER] Failed to connect client at {}:{}.", socket.remote_endpoint().address().to_string(), socket.remote_endpoint().port());
             }
 
-            WaitForClientConnection();
+            self->WaitForClientConnection();
         });
     }
 
@@ -102,34 +113,25 @@ namespace IMChat::Server
     {
         switch (message->Header.Type)
         {
-            case MessageType::TextMessage:
-                ProcessTextMessage(connection, message);
-                break;
-            case MessageType::LoginRequest:
-                ProcessLoginRequest(connection, message);
-                break;
-            default:
-                fmt::println("[SERVER] Invalid message received from client {}!", connection->GetID());
+        case MessageType::TextMessage:
+            ProcessTextMessage(connection, message);
+            break;
+        case MessageType::LoginRequest:
+            ProcessLoginRequest(connection, message);
+            break;
+        default:
+            fmt::println("[SERVER] Invalid message received from client {}!", connection->GetID());
         }
     }
 
-    void Server::OnClientDisconnect(std::shared_ptr<Connection> connection)
-    {
-        const auto connectionId = connection->GetID();
-        const auto& username = m_Clients[connectionId].Username;
-
-        SendUsersListUpdate(connectionId, username, "Disconnected");
-        fmt::println("[SERVER] Client {} ({}) disconnected!", connectionId, username);
-        m_Clients.erase(connectionId);
-    }
-
-    void Server::SendChatHistoryUpdate(const uint32_t messageAuthorConnectionId, const std::string& message)
+    void Server::SendChatHistoryUpdate(const uint32_t messageAuthorConnectionId, const std::string& message,
+        const std::string& timestamp)
     {
         // Send info about a new text message to all users except the message author
 
         const auto json = nlohmann::json{
             {"Sender", m_Clients[messageAuthorConnectionId].Username},
-            {"Timestamp", "TODO"},
+            {"Timestamp", timestamp},
             {"Text", message}
         };
 
@@ -221,11 +223,12 @@ namespace IMChat::Server
             try
             {
                 pqxx::work tx{*m_dbConnection};
-                tx.exec_params("INSERT INTO messages (user_id, message, timestamp) VALUES ($1, $2, NOW())",
+                const auto res = tx.exec_params("INSERT INTO messages (user_id, message, timestamp) VALUES ($1, $2, NOW()) RETURNING timestamp",
                     client.DatabaseID, text);
+                const auto timestamp = res[0][0].as<std::string>();
                 tx.commit();
 
-                SendChatHistoryUpdate(connection->GetID(), text);
+                SendChatHistoryUpdate(connection->GetID(), text, timestamp);
             }
             catch (const std::exception& e)
             {

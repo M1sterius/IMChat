@@ -2,20 +2,18 @@
 
 #include <queue>
 #include <mutex>
+#include <condition_variable>
 
 namespace IMChat
 {
-    /**
-     * Thread-safe queue class
-     */
     template<typename T>
-    class TSQueue
+    class CVQueue
     {
     public:
-        TSQueue() = default;
-        ~TSQueue() = default;
-        TSQueue(const TSQueue&) = delete;
-        TSQueue& operator = (const TSQueue&) = delete;
+        CVQueue() = default;
+        ~CVQueue() = default;
+        CVQueue(const CVQueue&) = delete;
+        CVQueue& operator = (const CVQueue&) = delete;
 
         const T& front()
         {
@@ -31,19 +29,19 @@ namespace IMChat
 
         void push(const T& value)
         {
-            std::unique_lock lock(m_Mutex);
-            m_Queue.push(value);
+            {
+                std::unique_lock lock(m_Mutex);
+                m_Queue.push(value);
+            }
+
+            m_CV.notify_one();
         }
 
-        void pop()
+        T wait_and_pop()
         {
             std::unique_lock lock(m_Mutex);
-            m_Queue.pop();
-        }
+            m_CV.wait(lock, [this]{return !m_Queue.empty(); });
 
-        T pop_front()
-        {
-            std::unique_lock lock(m_Mutex);
             auto temp = std::move(m_Queue.front());
             m_Queue.pop();
             return temp;
@@ -63,5 +61,6 @@ namespace IMChat
     private:
         std::mutex m_Mutex;
         std::queue<T> m_Queue;
+        std::condition_variable m_CV;
     };
 }

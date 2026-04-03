@@ -20,8 +20,8 @@ namespace IMChat::Client
     class Client
     {
     private:
-        static constexpr auto MAX_CHAT_HISTORY_LENGTH = 100u;
-        static constexpr auto MAX_SERVER_RESPONSE_WAIT_TIME = 5u;
+        static constexpr uint32_t MAX_CHAT_HISTORY_LENGTH = 100;
+        static constexpr uint32_t MAX_SERVER_RESPONSE_WAIT_TIME = 5;
     public:
         Client(const char* ip, const uint16_t port);
         ~Client();

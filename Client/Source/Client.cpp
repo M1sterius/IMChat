@@ -18,19 +18,24 @@ namespace IMChat::Client
         #if defined(_WIN32) && !defined(_DEBUG)
         FreeConsole();
         #endif
+        FreeConsole();
 
-        asio::error_code ec;
         auto idleWork = asio::make_work_guard(m_Context);
         m_Worker = std::thread([this] { m_Context.run(); });
 
         m_Connection = std::make_shared<Connection>(m_Context);
-        m_Connection->Connect(ip, port);
 
-        // Use lambda or std::bind to pass a callback method
-        m_Connection->SetReadMessageCallback([this](std::shared_ptr<Connection> client, std::shared_ptr<Message> msg)
+        try
         {
-            this->OnReceiveMessage(client, msg);
-        });
+            m_Connection->Connect(ip, port);
+
+            m_Connection->SetReadMessageCallback([this](std::shared_ptr<Connection> client, std::shared_ptr<Message> msg)
+            {
+                this->OnReceiveMessage(client, msg);
+            });
+        } catch (const std::exception& e) {
+            fmt::println("[CONNECTION] Failed to connect to the server! Error:{}", e.what());
+        }
     }
 
     Client::~Client()

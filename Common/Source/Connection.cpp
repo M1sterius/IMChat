@@ -21,7 +21,10 @@ namespace IMChat
     void Connection::Start()
     {
         if (m_Socket.is_open())
+        {
             ReadMessageHeader(std::make_shared<Message>());
+            m_IsConnected = true;
+        }
     }
 
     void Connection::Connect(const char* ip, const uint16_t port)
@@ -29,12 +32,15 @@ namespace IMChat
         m_Socket.connect(asio::ip::tcp::endpoint(asio::ip::make_address(ip), port));
 
         if (m_Socket.is_open())
+        {
             ReadMessageHeader(std::make_shared<Message>());
+            m_IsConnected = true;
+        }
     }
 
     bool Connection::IsConnected() const
     {
-        return m_Socket.is_open();
+        return m_IsConnected;
     }
 
     void Connection::Shutdown()
@@ -49,6 +55,7 @@ namespace IMChat
             m_DisconnectCallback(shared_from_this());
     }
 
+    // TODO: const& here is fucking unsafe. FIX IT!!!
     void Connection::SendMessage(const Message& message)
     {
         auto self = shared_from_this();

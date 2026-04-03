@@ -277,10 +277,10 @@ namespace IMChat::Client
         );
 
         uint32_t prevDay = 0;
-        ParsedTimestamp parsedTimestamp;
+        ParsedTimestamp parsedTimestamp{};
         for (const auto& [sender, timestamp, text] : messages)
         {
-            parsedTimestamp = ParseTimestamp(timestamp);
+            parsedTimestamp = ParseTimestamp(timestamp); // TODO: add parsing error checking
 
             if (parsedTimestamp.DayOfYear > prevDay)
             {
