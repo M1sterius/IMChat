@@ -18,7 +18,6 @@ namespace IMChat::Client
         #if defined(_WIN32) && !defined(_DEBUG)
         FreeConsole();
         #endif
-        FreeConsole();
 
         auto idleWork = asio::make_work_guard(m_Context);
         m_Worker = std::thread([this] { m_Context.run(); });

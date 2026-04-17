@@ -173,7 +173,7 @@ namespace IMChat::Client
         const auto viewport = ImGui::GetMainViewport();
         const auto popUpLabel = label.empty() ? "PopUp" : label.c_str();
         const auto buttonWidth = ImGui::CalcTextSize("OK").x + ImGui::GetStyle().FramePadding.x * 2.0f;
-        const auto buttonIndent = std::max((ImGui::GetContentRegionAvail().x - buttonWidth) * 0.5f, 0.0f);
+        const auto buttonIndent = std::max((ImGui::GetContentRegionAvail().x - buttonWidth) * 0.3f, 0.0f);
 
         ImGui::OpenPopup(popUpLabel);
         ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
