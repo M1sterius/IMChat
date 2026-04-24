@@ -37,6 +37,8 @@ target_include_directories(Client PRIVATE
     ${DEPENDENCIES_DIR}/fmt/include
 )
 
+target_compile_definitions(Common PRIVATE ASIO_STANDALONE)
+
 add_subdirectory(${DEPENDENCIES_DIR}/glfw ${CMAKE_CURRENT_BINARY_DIR}/glfw)
 
 target_link_libraries(Client PRIVATE Common glfw)

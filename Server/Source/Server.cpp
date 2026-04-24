@@ -96,7 +96,7 @@ namespace IMChat::Server
                 });
 
                 self->m_Clients[id] = ClientConnection{
-                    .Connection = connection,
+                    .CConnection = connection,
                     .LoggedIn = false
                 };
             }
@@ -142,7 +142,7 @@ namespace IMChat::Server
             if (id == messageAuthorConnectionId)
                 continue;
 
-            client.Connection->SendMessage(update);
+            client.CConnection->SendMessage(update);
         }
     }
 
@@ -159,7 +159,7 @@ namespace IMChat::Server
             if (id == userConnectionId)
                 continue;
 
-            client.Connection->SendMessage(Message::Make(json, MessageType::UsersListUpdate));
+            client.CConnection->SendMessage(Message::Make(json, MessageType::UsersListUpdate));
         }
     }
 

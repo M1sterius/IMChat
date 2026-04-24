@@ -36,3 +36,19 @@ a small GUI and PostgreSQL database.
   - Then broadcast to all other connected clients
 
 ## Building and running the project
+Clone the repository using `git clone https://github.com/M1sterius/IMChat.git`.
+Make sure you have installed `postgresql` dev package, `cmake`, `ninja` and a C++20 compatible compiler.
+If you're running a wayland linux distribution, make sure to install `libwayland-dev` package using
+`sudo apt install libwayland-dev libxkbcommon-dev xorg-dev`
+
+Generate build files by running this command in the root project directory.
+`cmake -S . -B CMakeBuild -DCMAKE_BUILD_TYPE=Debug`
+
+Compile the project with.
+`cmake -C CMakeBuild`
+
+Executables for server and client will be placed in `Bin/Server/<Debug/Release>` and `Bin/Client/<Debug/Release>`.
+
+To run the server you must firstly configure the database using the schema provided in `db/schema.sql`.
+After creating and configuring the database, make sure to set `IMCHAT_POSTGRESQL_USER`, `IMCHAT_DB_NAME` and `IMCHAT_DB_PASSWORD`
+environment variables.

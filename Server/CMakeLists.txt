@@ -20,8 +20,10 @@ target_include_directories(Server PRIVATE
     ${DEPENDENCIES_DIR}/fmt/include
 )
 
+target_compile_definitions(Common PRIVATE ASIO_STANDALONE)
+
 add_subdirectory(${DEPENDENCIES_DIR}/libpqxx ${CMAKE_CURRENT_BINARY_DIR}/libpqxx)
 
 target_link_directories(Server PRIVATE $ENV{PostgreSQL_LIBRARY})
 
-target_link_libraries(Server PRIVATE Common libpqxx::pqxx libpq)
+target_link_libraries(Server PRIVATE Common libpqxx::pqxx pq)

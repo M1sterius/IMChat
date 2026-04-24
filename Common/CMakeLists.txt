@@ -20,6 +20,8 @@ target_include_directories(Common PRIVATE
     Include
 )
 
+target_compile_definitions(Common PRIVATE ASIO_STANDALONE)
+
 if (WIN32)
     list(APPEND PLATFORM_LINK_LIBRARIES ws2_32 iphlpapi)
 elseif (UNIX)

@@ -2,7 +2,6 @@
 
 #include "Common.hpp"
 
-#define ASIO_STANDALONE
 #include "asio.hpp"
 #include "pqxx/pqxx"
 #include "nlohmann_json/json_fwd.hpp"
@@ -18,7 +17,7 @@ namespace IMChat::Server
     private:
         struct ClientConnection
         {
-            std::shared_ptr<Connection> Connection;
+            std::shared_ptr<Connection> CConnection;
             bool LoggedIn;
             std::string Username;
             uint64_t DatabaseID;

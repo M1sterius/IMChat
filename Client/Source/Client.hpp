@@ -4,7 +4,6 @@
 #include "ClientUI.hpp"
 #include "TextMessage.hpp"
 
-#define ASIO_STANDALONE
 #include "asio.hpp"
 #include "nlohmann_json/json_fwd.hpp"
 
