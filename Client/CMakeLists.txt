@@ -1,50 +1,51 @@
-cmake_minimum_required(VERSION 3.29)
+cmake_minimum_required(VERSION 3.16)
 
-project(Client)
+project(IMChatClient VERSION 0.1 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
-set(DEPENDENCIES_DIR ${CMAKE_SOURCE_DIR}/Dependencies)
-set(PLATFORM_LINK_LIBRARIES)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Do this because for some reason MSVC automatically creates CMAKE_BUILD_TYPE directory at the
-# end of CMAKE_RUNTIME_OUTPUT_DIRECTORY path which messes up assets post build copy directory
-if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/Bin/Client)
-else ()
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/Bin/Client/${CMAKE_BUILD_TYPE})
-endif ()
+find_package(Qt6 REQUIRED COMPONENTS Quick)
 
-add_executable(Client
-    ${DEPENDENCIES_DIR}/imgui/imgui.cpp
-    ${DEPENDENCIES_DIR}/imgui/imgui_draw.cpp
-    ${DEPENDENCIES_DIR}/imgui/imgui_impl_glfw.cpp
-    ${DEPENDENCIES_DIR}/imgui/imgui_impl_opengl3.cpp
-    ${DEPENDENCIES_DIR}/imgui/imgui_tables.cpp
-    ${DEPENDENCIES_DIR}/imgui/imgui_widgets.cpp
-    ${DEPENDENCIES_DIR}/glad/src/glad.c
+qt_standard_project_setup(REQUIRES 6.10)
 
-    Source/main.cpp
-    Source/Client.cpp
-    Source/ClientUI.cpp
+# Content of downloaded design from Figma to Qt or similar
+if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/importedcontent/CMakeLists.txt")
+    add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/importedcontent)
+endif()
+
+qt_add_executable(IMChatClient
+    main.cpp
+    Logic/ChatService.cpp
+    Logic/Models/MessageHistoryModel.cpp
+    Logic/Models/UsersListModel.cpp
 )
 
-target_include_directories(Client PRIVATE
-    ${DEPENDENCIES_DIR}
-    ${CMAKE_SOURCE_DIR}/Common/Include
-    ${DEPENDENCIES_DIR}/boost_asio
-    ${DEPENDENCIES_DIR}/glfw/include
-    ${DEPENDENCIES_DIR}/glad/include
-    ${DEPENDENCIES_DIR}/fmt/include
+qt_add_qml_module(IMChatClient
+    URI ChatUI
+    QML_FILES
+        Frontend/Main.qml
+        Frontend/MessageHistory.qml
+        Frontend/MessageInput.qml
+        Frontend/UsersList.qml
 )
 
-target_compile_definitions(Common PRIVATE ASIO_STANDALONE)
+# Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
+# If you are developing for iOS or macOS you should consider setting an
+# explicit, fixed bundle identifier manually though.
+set_target_properties(IMChatClient PROPERTIES
+#    MACOSX_BUNDLE_GUI_IDENTIFIER com.example.IMChatClient
+    MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
+    MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
+    MACOSX_BUNDLE TRUE
+    WIN32_EXECUTABLE TRUE
+)
 
-add_subdirectory(${DEPENDENCIES_DIR}/glfw ${CMAKE_CURRENT_BINARY_DIR}/glfw)
+target_link_libraries(IMChatClient
+    PRIVATE Qt6::Quick
+)
 
-target_link_libraries(Client PRIVATE Common glfw)
-
-add_custom_command(TARGET Client POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-    ${CMAKE_CURRENT_SOURCE_DIR}/Assets
-    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Assets
+install(TARGETS IMChatClient
+    BUNDLE DESTINATION .
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
