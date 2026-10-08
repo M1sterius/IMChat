@@ -24,6 +24,8 @@ qt_add_qml_module(IMChatClient
     URI ChatUI
     QML_FILES
         Frontend/Main.qml
+        Frontend/AppThemes.qml
+        Frontend/SettingsMenu.qml
         Frontend/MessageHistory.qml
         Frontend/MessageInput.qml
         Frontend/UsersList.qml

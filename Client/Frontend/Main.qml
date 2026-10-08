@@ -15,23 +15,8 @@ ApplicationWindow {
     color: app_theme.background
     font.pixelSize: 14
 
-    QtObject {
+    AppThemes {
         id: app_theme
-
-        readonly property bool lightMode: Application.styleHints.colorScheme === Qt.Light
-        readonly property color background: lightMode ? "#f3dfcd" : "#30344d"
-        readonly property color surface: lightMode ? "#ffe9d6" : "#3a3e5b"
-        readonly property color subtle: lightMode ? "#f4decb" : "#444964"
-        readonly property color border: lightMode ? "#d4bdad" : "#565a74"
-        readonly property color text: lightMode ? "#3a3e5b" : "#ffe9d6"
-        readonly property color muted: lightMode ? "#706577" : "#c5b9b3"
-        readonly property color accent: lightMode ? "#3a3e5b" : "#ffe9d6"
-        readonly property color button: lightMode ? "#3a3e5b" : "#ffe9d6"
-        readonly property color buttonText: lightMode ? "#ffe9d6" : "#3a3e5b"
-        readonly property color buttonHover: lightMode ? "#484d6c" : "#fff2e6"
-        readonly property color buttonPressed: lightMode ? "#30344d" : "#ead1bc"
-        // readonly property color online: lightMode ? "#657b62" : "#a8b69a"
-        readonly property color online: lightMode ? "green" : "green"
     }
 
     RowLayout {
@@ -46,37 +31,52 @@ ApplicationWindow {
             Layout.preferredWidth: 80
             spacing: 8
 
-            // title
-            Rectangle {
-                color: app_theme.surface
-                radius: 10
-                border.color: app_theme.border
+            // settings + title
+            RowLayout {
                 Layout.preferredHeight: 10
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                spacing: 8
 
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 16
-                    anchors.rightMargin: 16
-                    spacing: 12
+                SettingsMenu {
+                    id: settings_menu
+                    theme: app_theme
+                    Layout.preferredWidth: 7
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                }
 
-                    Text {
-                        text: "IMChat"
-                        color: app_theme.text
-                        font.pixelSize: 16
-                        font.weight: Font.DemiBold
-                        Layout.fillWidth: true
-                        elide: Text.ElideRight
-                    }
+                Rectangle {
+                    color: app_theme.surface
+                    radius: 10
+                    border.color: app_theme.border
+                    Layout.preferredWidth: 93
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
 
-                    // message count
-                    Text {
-                        text: message_history.messageCount === 0
-                            ? qsTr("No messages")
-                            : qsTr("Messages - %1").arg(message_history.messageCount)
-                        color: app_theme.muted
-                        font.pixelSize: 12
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 16
+                        anchors.rightMargin: 16
+                        spacing: 12
+
+                        Text {
+                            text: "IMChat"
+                            color: app_theme.text
+                            font.pixelSize: 16
+                            font.weight: Font.DemiBold
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
+                        }
+
+                        // message count
+                        Text {
+                            text: message_history.messageCount === 0
+                                ? qsTr("No messages")
+                                : qsTr("Messages - %1").arg(message_history.messageCount)
+                            color: app_theme.muted
+                            font.pixelSize: 12
+                        }
                     }
                 }
             }
@@ -133,70 +133,6 @@ ApplicationWindow {
                 id: users_list
                 theme: app_theme
             }
-
-            // Rectangle {
-            //     color: app_theme.surface
-            //     radius: 10
-            //     border.color: app_theme.border
-            //     Layout.preferredHeight: 90
-            //     Layout.fillWidth: true
-            //     Layout.fillHeight: true
-            //
-            //     ListView {
-            //         id: users_list
-            //
-            //         anchors.fill: parent
-            //         anchors.margins: 8
-            //         spacing: 4
-            //
-            //         clip: true
-            //         model: usersListModel
-            //
-            //         delegate: Rectangle {
-            //             id: user_row
-            //
-            //             required property string name
-            //
-            //             width: Math.max(0, users_list.width - 12)
-            //             height: 40
-            //             radius: 6
-            //             color: user_hover.hovered ? app_theme.subtle : "transparent"
-            //
-            //             HoverHandler {
-            //                 id: user_hover
-            //             }
-            //
-            //             RowLayout {
-            //                 anchors.fill: parent
-            //                 anchors.leftMargin: 10
-            //                 anchors.rightMargin: 10
-            //                 spacing: 10
-            //
-            //                 Rectangle {
-            //                     implicitWidth: 6
-            //                     implicitHeight: 6
-            //                     radius: 3
-            //                     color: app_theme.online
-            //                 }
-            //
-            //                 Text {
-            //                     text: user_row.name
-            //                     textFormat: Text.PlainText
-            //                     color: app_theme.text
-            //                     font.pixelSize: 14
-            //                     elide: Text.ElideRight
-            //                     Layout.fillWidth: true
-            //                 }
-            //             }
-            //         }
-            //
-            //         ScrollBar.vertical: ScrollBar {
-            //             policy: ScrollBar.AsNeeded
-            //             palette.mid: app_theme.muted
-            //             palette.dark: app_theme.muted
-            //         }
-            //     }
-            // }
         }
     }
 }
