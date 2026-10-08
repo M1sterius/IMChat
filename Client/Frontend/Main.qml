@@ -8,8 +8,8 @@ ApplicationWindow {
     id: window
     width: 1024
     height: 576
-    minimumWidth: 200
-    minimumHeight: 250
+    minimumWidth: 512
+    minimumHeight: 288
     visible: true
     title: "IMChat"
     color: app_theme.background
@@ -19,7 +19,13 @@ ApplicationWindow {
         id: app_theme
     }
 
+    Login {
+        theme: app_theme
+        service: chatService
+    }
+
     RowLayout {
+        visible: !chatService.showLogin
         anchors.fill: parent
         anchors.margins: 12
         spacing: 12

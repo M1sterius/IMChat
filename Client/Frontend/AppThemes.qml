@@ -8,7 +8,7 @@ QtObject {
         qsTr("Graphite & teal"),
         qsTr("Stone & olive"),
         qsTr("Ink & blue"),
-        qsTr("Original peach & purple")
+        qsTr("Peach & purple")
     ]
     readonly property var appearanceNames: [qsTr("System"), qsTr("Dark"), qsTr("Light")]
 

@@ -1,5 +1,3 @@
-pragma ComponentBehavior: Bound
-
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls.Basic
@@ -16,6 +14,10 @@ Button {
     Accessible.name: qsTr("Settings")
 
     onClicked: settings_popup.opened ? settings_popup.close() : settings_popup.open()
+    onVisibleChanged: {
+        if (!visible)
+            settings_popup.close()
+    }
 
     ToolTip.visible: hovered && !settings_popup.opened
     ToolTip.delay: 600
