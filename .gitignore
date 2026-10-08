@@ -6,3 +6,4 @@ CMakeBuild-Release/
 .vs/
 .idea/
 .venv/
+.DS_Store
